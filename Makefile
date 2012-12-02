@@ -1,8 +1,8 @@
 export TARGET_CODESIGN_FLAGS="-Ssign.plist"
 export TARGET=iphone:5.1
-export ARCHS=armv7
+export ARCHS= armv7
 #export ARCHS = armv6 armv7
-#export TARGET=iphone:5.1:4.3
+#export TARGET=iphone:5.0:4.0
 
 include theos/makefiles/common.mk
 
