@@ -1,0 +1,13 @@
+Package: com.autopear.installipa
+Version: 2.0
+Architecture: iphoneos-arm
+Maintainer: apt@app111 <apt@app111.com>
+Depends: com.ericasadun.utilities, coreutils, coreutils-bin, unzip, uikittools, grep, findutils, sed, dpkg, darwintools, com.ipod4g.fixblankicon
+Section: <工具>
+Priority: standard
+Description: 使用命令行安装 IPA。
+Tag: role::enduser, purpose::console
+Author: autopear <autopear@app111.com>
+Depiction: http://desc.app111.com/package/com.autopear.installipa
+Name: M:命令行安装 IPA
+Sponsor: app111.com <http://www.app111.com>
