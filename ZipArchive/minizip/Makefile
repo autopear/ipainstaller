@@ -5,5 +5,5 @@ export TARGET=iphone:5.0:4.0
 SUBPROJECT_NAME = minizip
 minizip_C_FILES = ioapi.c mztools.c unzip.c zip.c
 
-include ../theos/makefiles/common.mk
-include ../theos/makefiles/subproject.mk
+include ../../theos/makefiles/common.mk
+include ../../theos/makefiles/subproject.mk

@@ -5,12 +5,12 @@ GO_EASY_ON_ME=1
 include theos/makefiles/common.mk
 
 TOOL_NAME = installipa
-installipa_FILES = ZipArchive.mm UIDevice-Capabilities/UIDevice-Capabilities.m main.mm
+installipa_FILES = ZipArchive/ZipArchive.mm UIDevice-Capabilities/UIDevice-Capabilities.m main.mm
 installipa_FRAMEWORKS = Foundation UIKit
-installipa_CFLAGS = -I./minizip
+installipa_CFLAGS = -I./ZipArchive/minizip
 installipa_LDFLAGS = -MobileInstallation -lz
 installipa_INSTALL_PATH = /usr/bin
-installipa_SUBPROJECTS = minizip
+installipa_SUBPROJECTS = ZipArchive/minizip
 
 include theos/makefiles/tool.mk
 

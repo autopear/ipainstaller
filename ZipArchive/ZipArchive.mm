@@ -360,7 +360,8 @@
     return [AllFilenames autorelease];
 }
 
-- (BOOL)addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip {
+- (BOOL)addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip
+{
     // deep copy contents of fromPath directory to toPathInZip
     NSFileManager *fileManager = [NSFileManager defaultManager];
     BOOL isDir;
@@ -389,7 +390,8 @@
     return okay;
 }
 
-- (BOOL)addDirectoryToZip:(NSString*)fromPath {
+- (BOOL)addDirectoryToZip:(NSString*)fromPath
+{
     // deep copy directory contents to top level of zip
     return [self addDirectoryToZip:fromPath toPathInZip:@""];
 }

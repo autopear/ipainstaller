@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
-#import "ZipArchive.h"
+#import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
 #include <dlfcn.h>
@@ -114,7 +114,7 @@ int main (int argc, char **argv, char **envp)
                 {
                     if (quietInstall != 0)
                     {
-                        printf("Parameter q and Q cannot be specified at the same time.\n");
+                        printf("Parameter -q and -Q cannot be specified at the same time.\n");
                         return IPA_FAILED;
                     }
                     quietInstall = 2;
@@ -142,8 +142,8 @@ int main (int argc, char **argv, char **envp)
     }
     
     if ((showAbout && showHelp )
-        || (showAbout && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata))
-        || (showHelp && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata)))
+        || (showAbout && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
+        || (showHelp && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
     {
         printf("Invalid parameters.\n");
         return IPA_FAILED;
@@ -240,27 +240,27 @@ int main (int argc, char **argv, char **envp)
                 if (quietInstall == 0)
                     printf("Analyzing \"%s\"'.\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
                 
-                ZipArchive *ipaArchive = [[ZipArchive alloc] init];
                 BOOL isValidIPA = YES;
-                NSString *appName = nil;
                 NSString *pathInfoPlist = nil;
+                NSString *infoPath = nil;
                 while (YES)
                 {
                     pathInfoPlist = [workPath stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.Info.plist", randomStringInLength(6)]];
                     if (![[NSFileManager defaultManager] fileExistsAtPath:pathInfoPlist])
                         break;
                 }
-                if ([ipaArchive UnzipOpenFile:[ipaFiles objectAtIndex:0]])
+                
+                ZipArchive *ipaArchive = [[ZipArchive alloc] init];
+                if ([ipaArchive UnzipOpenFile:[ipaFiles objectAtIndex:i]])
                 {
                     NSMutableArray *array = [ipaArchive getZipFileContents];
-                    NSString *infoPath = nil;
                     int cnt = 0;
-                    for (unsigned int i=0; i<[array count];i++)
+                    for (unsigned int j=0; j<[array count];j++)
                     {
-                        NSString *name = [array objectAtIndex:i];
+                        NSString *name = [array objectAtIndex:j];
                         if ([name hasPrefix:@"Payload/"] && [name hasSuffix:@".app/Info.plist"])
                         {
-                            appName = [[name substringToIndex:([name length]-[@".app/Info.plist" length])] substringFromIndex:[@"Payload/" length]];
+                            NSString *appName = [[name substringToIndex:([name length]-[@".app/Info.plist" length])] substringFromIndex:[@"Payload/" length]];
                             if ([appName length] > 0 && [appName rangeOfString:@"/"].location == NSNotFound)
                             {
                                 infoPath = name;
@@ -286,8 +286,8 @@ int main (int argc, char **argv, char **envp)
                 
                 if (!isValidIPA && quietInstall < 2)
                 {
-                    printf("\"%s\" is not a valid ipa.\n\n", [[ipaFiles objectAtIndex:0] cStringUsingEncoding:NSUTF8StringEncoding]);
-                    return IPA_FAILED;
+                    printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                    continue;
                 }
                 
                 NSString *appIdentifier = nil;
@@ -313,15 +313,15 @@ int main (int argc, char **argv, char **envp)
                 else
                 {
                     if (quietInstall < 2)
-                        printf("\"%s\" is not a valid ipa.\n\n", [[ipaFiles objectAtIndex:0] cStringUsingEncoding:NSUTF8StringEncoding]);
+                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                     continue;
                 }
                 
                 if (!appIdentifier || !appDisplayName || !appVersion)
                 {
                     if (quietInstall < 2)
-                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:0] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
-                    return IPA_FAILED;
+                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                    continue;
                 }
                 
                 //Check installed states
@@ -395,7 +395,7 @@ int main (int argc, char **argv, char **envp)
                     || (DeviceModel == 3 && !supportAppleTV)) //Not support Apple TV
                 {
                     if (quietInstall == 0)
-                        printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                        printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                     //Device not supported
                     if (forceInstall)
@@ -409,10 +409,10 @@ int main (int argc, char **argv, char **envp)
                 }
                 
                 //Check minimun system requirement
-                if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedAscending)
+                if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedDescending)
                 {
                     if (quietInstall == 0)
-                        printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                        printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                     //System version is less than the min required version
                     if (forceInstall)
@@ -468,7 +468,7 @@ int main (int argc, char **argv, char **envp)
                     if (!isCapable)
                     {
                         if (quietInstall == 0)
-                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                         if (forceInstall)
                             [infoDict setObject:[requiredCapabilities sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIRequiredDeviceCapabilities"];
@@ -479,7 +479,7 @@ int main (int argc, char **argv, char **envp)
                 
                 if (shouldUpdateInfoPlist && ![infoDict writeToFile:pathInfoPlist atomically:YES] && quietInstall < 2)
                 {
-                    printf(@"Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                    printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                     continue;
                 }
                 
@@ -500,16 +500,42 @@ int main (int argc, char **argv, char **envp)
                 }
                 
                 //Modify ipa to force install
-                
+                if (shouldUpdateInfoPlist)
+                {
+                    BOOL shouldContinue = NO;
+                    ZipArchive *tmpArchive = [[ZipArchive alloc] init];
+                    if ([tmpArchive CreateZipFile2:installPath] && ![tmpArchive addFileToZip:pathInfoPlist newname:infoPath])
+                    {
+                        if (quietInstall < 2)
+                            printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+
+                        //Delete copied file
+                        if (![[NSFileManager defaultManager] removeItemAtPath:installPath error:nil] && quietInstall < 2)
+                        {
+                            NSLog(@"not show");
+                        }
+                        shouldContinue = YES;
+                    }
+                    [tmpArchive release];
+                    
+                    //Remove extracted Info.plist
+                    if (![[NSFileManager defaultManager] removeItemAtPath:pathInfoPlist error:nil] && quietInstall < 2)
+                    {
+                        NSLog(@"not show");
+                    }
+                    
+                    if (shouldContinue)
+                        continue;
+                }
                 
                 if (quietInstall == 0)
-                    printf("Installing \"%s\" version \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
+                    printf("%snstalling \"%s\" version \"%s\"...\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
                 int ret = install(installPath, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, installPath);
                 if (ret == 0)
                 {
                     successfulInstalls++;
                     if (quietInstall == 0)
-                        printf("Installed \"%s\" version \"%s\".%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%snstalled \"%s\" version \"%s\".%s", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                 }
                 else
                 {
