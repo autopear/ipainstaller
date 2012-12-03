@@ -61,7 +61,7 @@ int main (int argc, char **argv, char **envp)
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version. Installed application may not work properly.\n    -h  Display this usage information.\n    -q  Quiet mode, suppress all normal outputs.    \n-Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist.", executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version. Installed application may not work properly.\n    -h  Display this usage information.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist.", executableName];
 
     NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPA via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
 
@@ -365,22 +365,38 @@ int main (int argc, char **argv, char **envp)
 
                     if (installedShortVersion != nil && appShortVersion != nil)
                     {
-                        if ([installedShortVersion compare:appShortVersion] == NSOrderedDescending && !forceInstall)
+                        if ([installedShortVersion compare:appShortVersion] == NSOrderedDescending)
                         {
                             //Skip to avoid overriding a new version
-                            if (quietInstall == 0)
+                            if (forceInstall)
+                            {
+                                if (quietInstall == 0)
+                                    printf("A newer version \"%s\" of \"%s\" is already installed. Will force to downgrade.%s", [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                            }
+                            else
+                            {
+                                if (quietInstall < 2)
                                 printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
-                            continue;
+                                continue;
+                            }
                         }
                     }
                     else
                     {
-                        if ([installedVerion compare:appVersion] == NSOrderedDescending && !forceInstall)
+                        if ([installedVerion compare:appVersion] == NSOrderedDescending)
                         {
                             //Skip to avoid overriding a new version
-                            if (quietInstall == 0)
-                                printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
-                            continue;
+                            if (forceInstall)
+                            {
+                                if (quietInstall == 0)
+                                    printf("A newer version \"%s\" of \"%s\" is already installed. Will force to downgrade.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                            }
+                            else
+                            {
+                                if (quietInstall < 2)
+                                    printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                continue;
+                            }
                         }
                     }
                 }
@@ -424,34 +440,42 @@ int main (int argc, char **argv, char **envp)
                     || (DeviceModel == 2 && !supportiPad) //Not support iPad
                     || (DeviceModel == 3 && !supportAppleTV)) //Not support Apple TV
                 {
-                    if (quietInstall == 0)
-                        printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
-
                     //Device not supported
                     if (forceInstall)
                     {
+                        if (quietInstall == 0)
+                            printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                        
                         [supportedDeives addObject:[NSNumber numberWithInt:DeviceModel]];
                         [infoDict setObject:[supportedDeives sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIDeviceFamily"];
                         shouldUpdateInfoPlist = YES;
                     }
                     else
+                    {
+                        if (quietInstall < 2)
+                            printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");                        
                         continue;
+                    }
                 }
 
                 //Check minimun system requirement
                 if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedDescending)
                 {
-                    if (quietInstall == 0)
-                        printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
-
                     //System version is less than the min required version
                     if (forceInstall)
                     {
+                        if (quietInstall == 0)
+                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                        
                         [infoDict setObject:SystemVersion forKey:@"MinimumOSVersion"];
                         shouldUpdateInfoPlist = YES;
                     }
                     else
+                    {
+                        if (quietInstall < 2)
+                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
                         continue;
+                    }
                 }
 
                 //Chekc capabilities
@@ -468,9 +492,17 @@ int main (int argc, char **argv, char **envp)
                                 isCapable = NO;
                                 if (forceInstall)
                                 {
+                                    if (quietInstall == 0)
+                                        printf("Your device does not support %s capability.\n", [capability cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    
                                     shouldUpdateInfoPlist = YES;
                                     NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:NO], capability, nil];
                                     [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
+                                }
+                                else
+                                {
+                                    if (quietInstall < 2)
+                                        printf("Your device does not support %s capability.\n", [capability cStringUsingEncoding:NSUTF8StringEncoding]);
                                 }
                             }
                         }
@@ -484,9 +516,27 @@ int main (int argc, char **argv, char **envp)
                                 isCapable = NO;
                                 if (forceInstall)
                                 {
+                                    if (quietInstall == 0)
+                                    {
+                                        if (capabilityValue) //Device does not support
+                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                        else //Device support but IPA requires to be false
+                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    }
+
                                     shouldUpdateInfoPlist = YES;
                                     NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:!capabilityValue], capabilityKey, nil];
                                     [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
+                                }
+                                else
+                                {
+                                    if (quietInstall < 2)
+                                    {
+                                        if (capabilityValue) //Device does not support
+                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                        else //Device support but IPA requires to be false
+                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    }
                                 }
                             }
                         }
@@ -497,19 +547,14 @@ int main (int argc, char **argv, char **envp)
                     }
                     if (!isCapable)
                     {
-                        //Should modified!!!
-                        //Should modified!!!
-                        //Should modified!!!
-                        //Should modified!!!
-                        //Should modified!!!
-                        //Should modified!!!
-                        if (quietInstall == 0)
-                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
-
                         if (forceInstall)
                             [infoDict setObject:[requiredCapabilities sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIRequiredDeviceCapabilities"];
                         else
+                        {
+                            if (i != [ipaFiles count] - 1) //Not the last output
+                                printf("\n");
                             continue;
+                        }
                     }
                 }
 
