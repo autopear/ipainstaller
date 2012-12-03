@@ -36,19 +36,20 @@
 
 @property (nonatomic, retain) id delegate;
 
--(BOOL) CreateZipFile2:(NSString*) zipFile;
--(BOOL) CreateZipFile2:(NSString*) zipFile Password:(NSString*) password;
+-(BOOL) createZipFile2:(NSString*) zipFile;
+-(BOOL) createZipFile2:(NSString*) zipFile Password:(NSString*) password;
 -(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
--(BOOL) CloseZipFile2;
+-(BOOL) closeZipFile2;
 
--(int) UnzipOpenFile:(NSString*) zipFile;
--(int) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
--(BOOL) UnzipFileTo:(NSString*) path overWrite:(BOOL) overwrite;
--(BOOL) UnzipCloseFile;
+-(int) unzipOpenFile:(NSString*) zipFile;
+-(int) unzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
+-(BOOL) unzipFileTo:(NSString*) path overWrite:(BOOL) overwrite;
+-(BOOL) unzipCloseFile;
 
 -(NSMutableArray *) getZipFileContents;
--(NSArray*) UnzipFileToData;
--(NSData*) UnzipFileToDataWithFilename:(NSString *)name;
+-(NSArray*) unzipFileToData;
+-(NSData*) unzipFileToDataWithFilename:(NSString *)name;
 -(BOOL) addDirectoryToZip:(NSString*)fromPath;
 -(BOOL) addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip;
+-(BOOL) unzipDirectoryWithName:(NSString *)dirName toPath:(NSString *)toPath;
 @end

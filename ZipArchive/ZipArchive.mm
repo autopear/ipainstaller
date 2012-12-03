@@ -37,11 +37,11 @@
 
 -(void) dealloc
 {
-	[self CloseZipFile2];
+	[self closeZipFile2];
 	[super dealloc];
 }
 
--(BOOL) CreateZipFile2:(NSString*) zipFile
+-(BOOL) createZipFile2:(NSString*) zipFile
 {
 	_zipFile = zipOpen( (const char*)[zipFile UTF8String], 0 );
 	if( !_zipFile ) 
@@ -49,10 +49,10 @@
 	return YES;
 }
 
--(BOOL) CreateZipFile2:(NSString*) zipFile Password:(NSString*) password
+-(BOOL) createZipFile2:(NSString*) zipFile Password:(NSString*) password
 {
 	_password = password;
-	return [self CreateZipFile2:zipFile];
+	return [self createZipFile2:zipFile];
 }
 
 -(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
@@ -139,7 +139,7 @@
 	return YES;
 }
 
--(BOOL) CloseZipFile2
+-(BOOL) closeZipFile2
 {
 	_password = nil;
 	if( _zipFile==NULL )
@@ -149,7 +149,7 @@
 	return ret;
 }
 
--(int) UnzipOpenFile:(NSString*) zipFile
+-(int) unzipOpenFile:(NSString*) zipFile
 {
 	_unzFile = unzOpen( (const char*)[zipFile UTF8String] );
 	if( _unzFile )
@@ -164,13 +164,13 @@
         return -1;
 }
 
--(int) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password
+-(int) unzipOpenFile:(NSString*) zipFile Password:(NSString*) password
 {
 	_password = password;
-	return [self UnzipOpenFile:zipFile];
+	return [self unzipOpenFile:zipFile];
 }
 
--(BOOL) UnzipFileTo:(NSString*) path overWrite:(BOOL) overwrite
+-(BOOL) unzipFileTo:(NSString*) path overWrite:(BOOL) overwrite
 {
 	BOOL success = YES;
 	int ret = unzGoToFirstFile( _unzFile );
@@ -294,7 +294,7 @@
 	return success;
 }
 
--(BOOL) UnzipCloseFile
+-(BOOL) unzipCloseFile
 {
 	_password = nil;
 	if( _unzFile )
@@ -396,7 +396,7 @@
     return [self addDirectoryToZip:fromPath toPathInZip:@""];
 }
 
-- (NSArray*) UnzipFileToData
+- (NSArray*) unzipFileToData
 {
     NSMutableArray *array = [NSMutableArray arrayWithCapacity:5];
     
@@ -479,7 +479,7 @@
     return success==NO?nil:[NSArray arrayWithArray:array];
 }
 
-- (NSData*) UnzipFileToDataWithFilename:(NSString *)name
+- (NSData*) unzipFileToDataWithFilename:(NSString *)name
 {
     BOOL success = YES;
     int ret = unzGoToFirstFile( _unzFile );
@@ -564,6 +564,12 @@
     
     return nil;
 }
+
+-(BOOL) unzipDirectoryWithName:(NSString *)dirName toPath:(NSString *)toPath
+{
+    return YES;
+}
+
 
 #pragma mark wrapper for delegate
 -(void) OutputErrorMessage:(NSString*) msg

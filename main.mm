@@ -1,4 +1,4 @@
-//restore documents
+//copy&move path will overwrite?
 
 
 #import <UIKit/UIKit.h>
@@ -267,7 +267,7 @@ int main (int argc, char **argv, char **envp)
                 }
 
                 ZipArchive *ipaArchive = [[ZipArchive alloc] init];
-                if ([ipaArchive UnzipOpenFile:[ipaFiles objectAtIndex:i]])
+                if ([ipaArchive unzipOpenFile:[ipaFiles objectAtIndex:i]])
                 {
                     NSMutableArray *array = [ipaArchive getZipFileContents];
                     int cnt = 0;
@@ -292,10 +292,10 @@ int main (int argc, char **argv, char **envp)
                     if (isValidIPA)
                     {
                         //Unzip Info.plist
-                        NSData *infoData = [ipaArchive UnzipFileToDataWithFilename:infoPath];
+                        NSData *infoData = [ipaArchive unzipFileToDataWithFilename:infoPath];
                         [infoData writeToFile:pathInfoPlist atomically:YES];
                     }
-                    [ipaArchive UnzipCloseFile];
+                    [ipaArchive unzipCloseFile];
                 }
                 else
                     isValidIPA = NO;
@@ -591,19 +591,14 @@ int main (int argc, char **argv, char **envp)
                             printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                         //Delete copied file
-                        if (![fileMgr removeItemAtPath:installPath error:nil] && quietInstall < 2)
-                        {
-                            //Well, I don't care
-                        }
+                        [fileMgr removeItemAtPath:installPath error:nil];
+
                         shouldContinue = YES;
                     }
                     [tmpArchive release];
 
                     //Remove extracted Info.plist
-                    if (![fileMgr removeItemAtPath:pathInfoPlist error:nil] && quietInstall < 2)
-                    {
-                        //Well, I don't care
-                    }
+                    [fileMgr removeItemAtPath:pathInfoPlist error:nil];
 
                     if (shouldContinue)
                         continue;
@@ -663,7 +658,17 @@ int main (int argc, char **argv, char **envp)
                             if (!cleanInstall && hasContainer)
                             {
                                 //The tmp ipa file is already deleted.
+                                ipaArchive = [[ZipArchive alloc] init];
+                                if ([ipaArchive unzipOpenFile:[ipaFiles objectAtIndex:i]])
+                                {
+                                    if ([ipaArchive unzipDirectoryWithName:@"Container" toPath:workPath])
+                                    {
+                                        
+                                    }
 
+                                    [ipaArchive unzipCloseFile];
+                                }
+                                [ipaArchive release];
                             }
 
                             //Clear documents, etc.
