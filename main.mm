@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "ZipArchive.h"
+#import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
 #include <dlfcn.h>
 
@@ -61,7 +62,7 @@ int main (int argc, char **argv, char **envp)
     
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
     
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check compatibilities and application version. Installed application may not work properly.\n    -h  Display usage information.\n    -q  Quiet mode, suppress all normal outputs.    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove Metadata.plist.", executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and application version. Installed application may not work properly.\n    -h  Display usage information.\n    -q  Quiet mode, suppress all normal outputs.    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove Metadata.plist.", executableName];
 
     NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPA via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
 
@@ -295,7 +296,7 @@ int main (int argc, char **argv, char **envp)
                 NSString *appShortVersion = nil;
                 NSString *minSysVersion = nil;
                 NSMutableArray *supportedDeives = nil;
-                NSMutableArray *requiredCompatibilities = nil;
+                NSMutableArray *requiredCapabilities = nil;
                 
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
                 
@@ -307,7 +308,7 @@ int main (int argc, char **argv, char **envp)
                     appShortVersion = [infoDict objectForKey:@"CFBundleShortVersionString"];
                     minSysVersion = [infoDict objectForKey:@"MinimumOSVersion"];
                     supportedDeives = [infoDict objectForKey:@"UIDeviceFamily"];
-                    requiredCompatibilities = [infoDict objectForKey:@"UIRequiredDeviceCapabilities"];
+                    requiredCapabilities = [infoDict objectForKey:@"UIRequiredDeviceCapabilities"];
                 }
                 else
                 {
@@ -423,37 +424,63 @@ int main (int argc, char **argv, char **envp)
                         continue;
                 }
                 
-                //Chekc compatibilities
-                if (requiredCompatibilities)
+                //Chekc capabilities
+                if (requiredCapabilities)
                 {
-                    BOOL isCompatible = YES;
-                    for (unsigned int j=0; j<[requiredCompatibilities count]; j++)
+                    BOOL isCapable = YES;
+                    for (unsigned int j=0; j<[requiredCapabilities count]; j++)
                     {
-                        id compatibility = [requiredCompatibilities objectAtIndex:j];
-                        if([compatibility isKindOfClass:[NSString class]])
+                        id capability = [requiredCapabilities objectAtIndex:j];
+                        if ([capability isKindOfClass:[NSString class]])
                         {
-                            //Is array
+                            if (![[UIDevice currentDevice] supportsCapability:capability])
+                            {
+                                isCapable = NO;
+                                if (forceInstall)
+                                {
+                                    shouldUpdateInfoPlist = YES;
+                                    NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:NO], capability, nil];
+                                    [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
+                                }
+                            }
                         }
-                        else if([compatibility isKindOfClass:[NSDictionary class]])
+                        else if ([capability isKindOfClass:[NSDictionary class]])
                         {
-                            //is dictionary
+                            NSString *capabilityKey = [[(NSDictionary *)capability allKeys] objectAtIndex:0];
+                            BOOL capabilityValue = [[(NSDictionary *)capability objectForKey:capabilityKey] boolValue];
+                            //Only boolean value
+                            if (capabilityValue != [[UIDevice currentDevice] supportsCapability:capabilityKey])
+                            {
+                                isCapable = NO;
+                                if (forceInstall)
+                                {
+                                    shouldUpdateInfoPlist = YES;
+                                    NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:!capabilityValue], capabilityKey, nil];
+                                    [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
+                                }
+                            }
                         }
                         else
                         {
-                            //is something else
+                            //is something else that dont know how to handle, so just skip
                         }
                     }
-                    if (!isCompatible)
+                    if (!isCapable)
                     {
                         if (quietInstall == 0)
                             printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+
                         if (forceInstall)
-                        {
-                            
-                        }
+                            [infoDict setObject:[requiredCapabilities sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIRequiredDeviceCapabilities"];
                         else
                             continue;
                     }
+                }
+                
+                if (shouldUpdateInfoPlist && ![infoDict writeToFile:pathInfoPlist atomically:YES] && quietInstall < 2)
+                {
+                    printf(@"Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                    continue;
                 }
                 
                 //Copy file to install
@@ -471,6 +498,9 @@ int main (int argc, char **argv, char **envp)
                     printf("Failed to create temporaty files.\n");
                     return IPA_FAILED;
                 }
+                
+                //Modify ipa to force install
+                
                 
                 if (quietInstall == 0)
                     printf("Installing \"%s\" version \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
