@@ -1,3 +1,6 @@
+//restore documents
+
+
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "ZipArchive/ZipArchive.h"
@@ -12,10 +15,6 @@
 
 #define IPA_FAILED -1
 #define IPA_QUIT_NORMAL 0
-#define IPA_DOWNGRADE 1
-#define IPA_DEVICE_NOT_SUPPORTED 2
-#define IPA_INCOMPATIBLE 3
-#define IPA_UNKNOW_ERROR 4
 
 typedef int (*MobileInstallationInstall)(NSString *path, NSDictionary *dict, void *na, NSString *backpath);
 
@@ -62,7 +61,7 @@ int main (int argc, char **argv, char **envp)
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and application version. Installed application may not work properly.\n    -h  Display usage information.\n    -q  Quiet mode, suppress all normal outputs.    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove Metadata.plist.", executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version. Installed application may not work properly.\n    -h  Display this usage information.\n    -q  Quiet mode, suppress all normal outputs.    \n-Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist.", executableName];
 
     NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPA via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
 
@@ -235,11 +234,29 @@ int main (int argc, char **argv, char **envp)
 
             for (unsigned i=0; i<[ipaFiles count]; i++)
             {
+                //Before installation, make a clean workspace
+                if ([fileMgr fileExistsAtPath:workPath] && ![fileMgr fileExistsAtPath:workPath isDirectory:NO])
+                {
+                    NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:workPath error:nil];
+                    for (int unsigned j=0; j<[dirContents count]; j++)
+                    {
+                        NSError *err = nil;
+                        if (![fileMgr removeItemAtPath:[workPath stringByAppendingPathComponent:[dirContents objectAtIndex:j]] error:&err])
+                        {
+                            //Got problem
+                            printf("Failed to create workspace.\nReason: %s\n", [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            [err release];
+                            return IPA_FAILED;
+                        }
+                    }
+                }
+
                 NSString *ipa = [ipaFiles objectAtIndex:i];
                 if (quietInstall == 0)
                     printf("Analyzing \"%s\"'.\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
 
                 BOOL isValidIPA = YES;
+                BOOL hasContainer = NO;
                 NSString *pathInfoPlist = nil;
                 NSString *infoPath = nil;
                 while (YES)
@@ -257,10 +274,12 @@ int main (int argc, char **argv, char **envp)
                     for (unsigned int j=0; j<[array count];j++)
                     {
                         NSString *name = [array objectAtIndex:j];
-                        if ([name hasPrefix:@"Payload/"] && [name hasSuffix:@".app/Info.plist"])
+                        NSArray *components = [name pathComponents];
+                        if ([components count] > 1 && [[components objectAtIndex:0] isEqualToString:@"Container"])
+                            hasContainer = YES;
+                        else
                         {
-                            NSString *appName = [[name substringToIndex:([name length]-[@".app/Info.plist" length])] substringFromIndex:[@"Payload/" length]];
-                            if ([appName length] > 0 && [appName rangeOfString:@"/"].location == NSNotFound)
+                            if ([components count] == 3 && [[components objectAtIndex:0] isEqualToString:@"Payload"] && [[components objectAtIndex:2] isEqualToString:@"Info.plist"])
                             {
                                 infoPath = name;
                                 cnt++;
@@ -276,7 +295,6 @@ int main (int argc, char **argv, char **envp)
                         NSData *infoData = [ipaArchive UnzipFileToDataWithFilename:infoPath];
                         [infoData writeToFile:pathInfoPlist atomically:YES];
                     }
-
                     [ipaArchive UnzipCloseFile];
                 }
                 else
@@ -321,6 +339,16 @@ int main (int argc, char **argv, char **envp)
                     if (quietInstall < 2)
                         printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                     continue;
+                }
+
+                //Make a copy of extracted Info.plist
+                NSString *pathOriginalInfoPlist = [NSString stringWithFormat:@"%@.original", pathInfoPlist];
+                if (![fileMgr copyItemAtPath:pathInfoPlist toPath:pathOriginalInfoPlist error:nil])
+                {
+                   //Force installation has to be disabled.
+                    if (forceInstall && quietInstall < 2)
+                        printf("Force installation has to be disabled.\n");
+                    forceInstall = NO;
                 }
 
                 //Check installed stats
@@ -520,18 +548,7 @@ int main (int argc, char **argv, char **envp)
                         //Delete copied file
                         if (![fileMgr removeItemAtPath:installPath error:nil] && quietInstall < 2)
                         {
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
-                            NSLog(@"not show");
+                            //Well, I don't care
                         }
                         shouldContinue = YES;
                     }
@@ -540,15 +557,7 @@ int main (int argc, char **argv, char **envp)
                     //Remove extracted Info.plist
                     if (![fileMgr removeItemAtPath:pathInfoPlist error:nil] && quietInstall < 2)
                     {
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
-                        NSLog(@"not show");
+                        //Well, I don't care
                     }
 
                     if (shouldContinue)
@@ -580,16 +589,37 @@ int main (int argc, char **argv, char **envp)
 
                         if (appInstalled)
                         {
+                            //Recover the original Info.plist in force installation
+                            if (shouldUpdateInfoPlist)
+                            {
+                                if ([fileMgr setAttributes:attrFile ofItemAtPath:pathOriginalInfoPlist error:nil])
+                                {
+                                    NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedLocation, [[infoPath pathComponents] objectAtIndex:1]];
+                                    if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:NO])
+                                    {
+                                        if ([fileMgr removeItemAtPath:pathInstalledInfoPlist error:nil])
+                                        {
+                                            if ([fileMgr moveItemAtPath:pathOriginalInfoPlist toPath:pathInstalledInfoPlist error:nil])
+                                            {
+                                                [fileMgr setAttributes:attrFile ofItemAtPath:pathOriginalInfoPlist error:nil];
+                                                if ([fileMgr fileExistsAtPath:pathOriginalInfoPlist])
+                                                    [fileMgr removeItemAtPath:pathOriginalInfoPlist error:nil];
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             successfulInstalls++;
                             if (quietInstall == 0)
                                 printf("%snstalled \"%s\" version \"%s\".%s", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                             //Recover documents
-                            //Recover documents
-                            //Recover documents
-                            //Recover documents
-                            //Recover documents
-                            //Recover documents
+                            if (!cleanInstall && hasContainer)
+                            {
+                                //The tmp ipa file is already deleted.
+
+                            }
 
                             //Clear documents, etc.
                             if (appAlreadyInstalled && cleanInstall)
@@ -604,7 +634,7 @@ int main (int argc, char **argv, char **envp)
                                 BOOL allContentsCleaned = YES;
 
                                 //Clear Documents
-                                if ([fileMgr fileExistsAtPath:dirDocuments] && [fileMgr fileExistsAtPath:dirDocuments isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirDocuments] && ![fileMgr fileExistsAtPath:dirDocuments isDirectory:NO])
                                 {
                                     NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirDocuments error:nil];
                                     for (int unsigned j=0; j<[dirContents count]; j++)
@@ -614,7 +644,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 //Clear Library
-                                if ([fileMgr fileExistsAtPath:dirLibrary] && [fileMgr fileExistsAtPath:dirLibrary isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirLibrary] && ![fileMgr fileExistsAtPath:dirLibrary isDirectory:NO])
                                 {
                                     NSString *dirPreferences = [dirLibrary stringByAppendingPathComponent:@"Preferences"];
                                     NSString *dirCaches = [dirLibrary stringByAppendingPathComponent:@"Caches"];
@@ -653,7 +683,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 //Clear tmp
-                                if ([fileMgr fileExistsAtPath:dirTmp] && [fileMgr fileExistsAtPath:dirTmp isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirTmp] && ![fileMgr fileExistsAtPath:dirTmp isDirectory:NO])
                                 {
                                     NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirTmp error:nil];
                                     for (int unsigned j=0; j<[dirContents count]; j++)
@@ -674,7 +704,6 @@ int main (int argc, char **argv, char **envp)
                                 if (![fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil] && quietInstall < 2)
                                     printf("Failed to remove \"%s\".\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
-
                         }
                         else
                         {
@@ -694,7 +723,7 @@ int main (int argc, char **argv, char **envp)
                         printf("Failed to install \"%s\".%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                 }
 
-                //Delete tmp file
+                //Delete tmp ipa file
                 if ([fileMgr fileExistsAtPath:installPath])
                 {
                     if (![fileMgr removeItemAtPath:installPath error:nil] && quietInstall < 2)
