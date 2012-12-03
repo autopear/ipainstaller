@@ -27,7 +27,8 @@
 
 -(id) init
 {
-	if( self=[super init] )
+	self = [super init];
+	if(self)
 	{
 		_zipFile = NULL ;
 	}
@@ -56,16 +57,15 @@
 
 -(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
 {
-	if( !_zipFile )
+	if (!_zipFile)
 		return NO;
-//	tm_zip filetime;
+
 	time_t current;
 	time( &current );
 	
-	zip_fileinfo zipInfo = {0};
-//	zipInfo.dosDate = (unsigned long) current;
+	zip_fileinfo zipInfo = {{0}};
 	
-	NSDictionary* attr = [[NSFileManager defaultManager] fileAttributesAtPath:file traverseLink:YES];
+	NSDictionary* attr = [[NSFileManager defaultManager] attributesOfItemAtPath:file error:nil];
 	if( attr )
 	{
 		NSDate* fileDate = (NSDate*)[attr objectForKey:NSFileModificationDate];
@@ -157,7 +157,7 @@
 		unz_global_info  globalInfo = {0};
 		if( unzGetGlobalInfo(_unzFile, &globalInfo )==UNZ_OK )
 		{
-			NSLog([NSString stringWithFormat:@"%d entries in the zip file",globalInfo.number_entry] );
+			printf("%lu entries in the zip file", globalInfo.number_entry);
 		}
 	}
 	return _unzFile!=NULL;
@@ -207,7 +207,7 @@
 		filename[fileInfo.size_filename] = '\0';
 		
 		// check if it contains directory
-		NSString * strPath = [NSString  stringWithCString:filename];
+		NSString * strPath = [NSString stringWithFormat:@"%s", filename];
 		BOOL isDirectory = NO;
 		if( filename[fileInfo.size_filename-1]=='/' || filename[fileInfo.size_filename-1]=='\\')
 			isDirectory = YES;
