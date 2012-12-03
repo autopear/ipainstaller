@@ -6,7 +6,7 @@ include theos/makefiles/common.mk
 
 TOOL_NAME = installipa
 installipa_FILES = ZipArchive.mm main.mm
-installipa_FRAMEWORKS = Foundation
+installipa_FRAMEWORKS = Foundation UIKit
 installipa_CFLAGS = -I./minizip
 installipa_LDFLAGS = -MobileInstallation -lz
 installipa_INSTALL_PATH = /usr/bin

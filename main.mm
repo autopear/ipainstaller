@@ -1,6 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "ZipArchive.h"
+
 #include <dlfcn.h>
 
 #define EXECUTABLE_VERSION @"2.0"
@@ -16,6 +17,9 @@
 #define IPA_UNKNOW_ERROR 4
 
 typedef int (*MobileInstallationInstall)(NSString *path, NSDictionary *dict, void *na, NSString *backpath);
+
+static NSString *SystemVersion = nil;
+static int DeviceModel = 0;
 
 static BOOL cleanInstall = NO;
 static int quietInstall = 0; //0 is show all outputs, 1 is to show only errors, 2 is to show nothing
@@ -38,7 +42,18 @@ NSString * randomStringInLength(int len)
 int main (int argc, char **argv, char **envp)
 {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-
+    
+    //Get system info
+    SystemVersion = [UIDevice currentDevice].systemVersion;
+    NSString *deviceString = [UIDevice currentDevice].model;
+    if ([deviceString isEqualToString:@"iPhone"] || [deviceString isEqualToString:@"iPod touch"])
+        DeviceModel = 1;
+    else if ([DeviceModel isEqualToString:@"iPad"])
+        DeviceModel = 2;
+    else
+        DeviceModel = 3; //Apple TV maybe?
+    
+    //Process parameters
     NSArray *arguments = [[NSProcessInfo processInfo] arguments];
 
     if ([arguments count] < 1)
@@ -336,6 +351,23 @@ int main (int argc, char **argv, char **envp)
                                 printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                             continue;
                         }
+                    }
+                }
+                
+                BOOL shouldUpdateInfoPlist = NO;
+                if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedAscending)
+                {
+                    //System version is less than the min required version
+                    if (forceInstall)
+                    {
+                        [infoDict setObject:SystemVersion forKey:@"MinimumOSVersion"];
+                        shouldUpdateInfoPlist = YES;
+                    }
+                    else
+                    {
+                        if (quietInstall == 0)
+                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        continue;
                     }
                 }
                 
