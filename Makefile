@@ -1,16 +1,18 @@
 export TARGET_CODESIGN_FLAGS="-Ssign.plist"
-export TARGET=iphone:5.1
-export ARCHS= armv7
-#export ARCHS = armv6 armv7
-#export TARGET=iphone:5.0:4.0
-
+#export TARGET=iphone:4.0
+#export ARCHS= armv6
+export ARCHS = armv6 armv7
+export TARGET=iphone:5.0:4.0
+GO_EASY_ON_ME=1
 include theos/makefiles/common.mk
 
 TOOL_NAME = installipa
-installipa_FILES = main.mm
-installipa_FRAMEWORKS = UIKit
+installipa_FILES = ZipArchive.mm main.mm
+installipa_FRAMEWORKS = Foundation
+pincrush_CFLAGS = -I./minizip
 installipa_LDFLAGS = -MobileInstallation
 installipa_INSTALL_PATH = /usr/bin
+installipa_SUBPROJECTS = minizip
 
 include theos/makefiles/tool.mk
 
@@ -26,3 +28,5 @@ before-package::
 
 after-package::
 	rm -fr .theos/packages/*
+SUBPROJECTS += zipzap
+include $(THEOS_MAKE_PATH)/aggregate.mk

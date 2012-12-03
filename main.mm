@@ -1,4 +1,6 @@
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
+#import "ZipArchive.h"
 #include <dlfcn.h>
 
 #define EXECUTABLE_VERSION @"2.0"
@@ -140,13 +142,84 @@ int main (int argc, char **argv, char **envp)
         MobileInstallationInstall install = (MobileInstallationInstall)dlsym(lib, "MobileInstallationInstall");
         if (install)
         {
+            NSArray *filesInTemp = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:NSTemporaryDirectory() error:nil];
+            for (NSString *file in filesInTemp)
+            {
+                file = [NSTemporaryDirectory() stringByAppendingPathComponent:[file lastPathComponent]];
+                if ([[file lastPathComponent] hasPrefix:@"com.autopear.installipa."])
+                {
+                    if (![[NSFileManager defaultManager] removeItemAtPath:file error:nil])
+                        printf("Cannot delete \"%s\".\n", [file cStringUsingEncoding:NSUTF8StringEncoding]);
+                }
+            }
+            
+            NSString *workPath = nil;
+            while (YES)
+            {
+                NSString *letters = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                workPath = @"com.autopear.installipa.";
+
+                for (int i=0; i<4; i++)
+                {
+                    workPath = [NSString stringWithFormat:@"%@%C", workPath, [letters characterAtIndex:arc4random() % [letters length]]];
+                }
+                
+                workPath = [NSTemporaryDirectory() stringByAppendingPathComponent:workPath];
+                
+                if (![[NSFileManager defaultManager] fileExistsAtPath:workPath])
+                    break;
+            }
+            
+            //Create working directory
+            NSMutableDictionary *attrDir = [NSMutableDictionary dictionary];
+            [attrDir setObject:@"mobile" forKey:NSFileOwnerAccountName];
+            [attrDir setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+            [attrDir setObject:[NSNumber numberWithInt:0755] forKey:NSFilePosixPermissions];
+
+            NSMutableDictionary *attrFile = [NSMutableDictionary dictionary];
+            [attrFile setObject:@"mobile" forKey:NSFileOwnerAccountName];
+            [attrFile setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+            [attrFile setObject:[NSNumber numberWithInt:0644] forKey:NSFilePosixPermissions];
+
+            if(![[NSFileManager defaultManager] createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:attrDir error:NULL])
+            {
+                printf("Failed to create workspace.\n");
+                return IPA_FAILED;
+            }
+
+            NSString *installPath = [workPath stringByAppendingPathComponent:@"tmp.install.ipa"];
+            
             for (unsigned i=0; i<[ipaFiles count]; i++)
             {
                 NSString *ipa = [ipaFiles objectAtIndex:i];
                 if (!quietInstall)
                     printf("Installing %d of %d \"%s\"'.\n", (i+1), [ipaFiles count], [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
-   
-                int ret = install(ipa, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, ipa);
+                
+                /*
+                ZipArchive *za = [[ZipArchive alloc] init];
+                if ([za UnzipOpenFile: @"/Volumes/data/testfolder/Archive.zip"]) {
+                    BOOL ret = [za UnzipFileTo: @"/Volumes/data/testfolde/extract" overWrite: YES];
+                    if (NO == ret){} [za UnzipCloseFile];
+                }
+                [za release];
+                 */
+                //Copy file to install
+                if ([[NSFileManager defaultManager] fileExistsAtPath:installPath])
+                {
+                    if (![[NSFileManager defaultManager] removeItemAtPath:installPath error:nil])
+                    {
+                        printf("Failed to delete \"%s\".\n", [installPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                        return IPA_FAILED;
+                    }
+                }
+                
+                if (![[NSFileManager defaultManager] copyItemAtPath:ipa toPath:installPath error:nil])
+                {
+                    printf("Failed to create temporaty files.\n");
+                    return IPA_FAILED;
+                }
+                
+                int ret = install(installPath, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, installPath);
                 if (ret == 0)
                 {
                     successfulInstalls++;
@@ -167,6 +240,22 @@ int main (int argc, char **argv, char **envp)
                         else
                             printf("Installlation failed.\n\n");
                     }
+                }
+                
+                //Delete file
+                if ([[NSFileManager defaultManager] fileExistsAtPath:installPath])
+                {
+                    if (![[NSFileManager defaultManager] removeItemAtPath:installPath error:nil])
+                        printf("Failed to delete \"%s\".\n", [installPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                        return IPA_FAILED;
+                }
+                
+                if (deleteFile && [[NSFileManager defaultManager] fileExistsAtPath:ipa])
+                {
+                    NSError *err;
+                    [[NSFileManager defaultManager] removeItemAtPath:installPath error:&err];
+                    if (err)
+                        printf("Failed to delete \"%s\".\nReason: %s", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
                 }
             }
         }
