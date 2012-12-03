@@ -41,8 +41,14 @@
 -(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
 -(BOOL) CloseZipFile2;
 
--(BOOL) UnzipOpenFile:(NSString*) zipFile;
--(BOOL) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
+-(int) UnzipOpenFile:(NSString*) zipFile;
+-(int) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
 -(BOOL) UnzipFileTo:(NSString*) path overWrite:(BOOL) overwrite;
 -(BOOL) UnzipCloseFile;
+
+-(NSMutableArray *) getZipFileContents;
+-(NSArray*) UnzipFileToData;
+-(NSData*) UnzipFileToDataWithFilename:(NSString *)name;
+-(BOOL) addDirectoryToZip:(NSString*)fromPath;
+-(BOOL) addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip;
 @end

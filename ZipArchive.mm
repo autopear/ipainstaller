@@ -149,21 +149,22 @@
 	return ret;
 }
 
--(BOOL) UnzipOpenFile:(NSString*) zipFile
+-(int) UnzipOpenFile:(NSString*) zipFile
 {
 	_unzFile = unzOpen( (const char*)[zipFile UTF8String] );
 	if( _unzFile )
 	{
 		unz_global_info  globalInfo = {0};
 		if( unzGetGlobalInfo(_unzFile, &globalInfo )==UNZ_OK )
-		{
-			printf("%lu entries in the zip file", globalInfo.number_entry);
-		}
+			return (int)globalInfo.number_entry;
+		else
+		return -1;
 	}
-	return _unzFile!=NULL;
+    else
+        return -1;
 }
 
--(BOOL) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password
+-(int) UnzipOpenFile:(NSString*) zipFile Password:(NSString*) password
 {
 	_password = password;
 	return [self UnzipOpenFile:zipFile];
@@ -207,7 +208,7 @@
 		filename[fileInfo.size_filename] = '\0';
 		
 		// check if it contains directory
-		NSString * strPath = [NSString stringWithFormat:@"%s", filename];
+        NSString *strPath = [NSString stringWithUTF8String:filename];
 		BOOL isDirectory = NO;
 		if( filename[fileInfo.size_filename-1]=='/' || filename[fileInfo.size_filename-1]=='\\')
 			isDirectory = YES;
@@ -299,6 +300,267 @@
 	if( _unzFile )
 		return unzClose( _unzFile )==UNZ_OK;
 	return YES;
+}
+
+- (NSMutableArray *) getZipFileContents
+{
+    BOOL success = YES;
+    int ret = unzGoToFirstFile( _unzFile );
+    NSMutableArray * AllFilenames = [[NSMutableArray alloc] initWithCapacity:40];
+    
+    if( ret!=UNZ_OK )
+    {
+        [self OutputErrorMessage:@"Failed"];
+    }
+    
+    do{
+        if( [_password length]==0 )
+            ret = unzOpenCurrentFile( _unzFile );
+        else
+            ret = unzOpenCurrentFilePassword( _unzFile, [_password cStringUsingEncoding:NSASCIIStringEncoding] );
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occured"];
+            success = NO;
+            break;
+        }
+        
+        // reading data and write to file
+        unz_file_info   fileInfo ={0};
+        ret = unzGetCurrentFileInfo(_unzFile, &fileInfo, NULL, 0, NULL, 0, NULL, 0);
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occurs while getting file info"];
+            success = NO;
+            unzCloseCurrentFile( _unzFile );
+            break;
+        }
+        char* filename = (char*) malloc( fileInfo.size_filename +1 );
+        unzGetCurrentFileInfo(_unzFile, &fileInfo, filename, fileInfo.size_filename + 1, NULL, 0, NULL, 0);
+        filename[fileInfo.size_filename] = '\0';
+        
+        // check if it contains directory
+        NSString *strPath = [NSString stringWithUTF8String:filename];
+        BOOL isDirectory = NO;
+        if( filename[fileInfo.size_filename-1]=='/' || filename[fileInfo.size_filename-1]=='\\')
+            isDirectory = YES;
+        free( filename );
+        if( [strPath rangeOfCharacterFromSet:[NSCharacterSet characterSetWithCharactersInString:@"/\\"]].location!=NSNotFound )
+        {// contains a path
+            strPath = [strPath stringByReplacingOccurrencesOfString:@"\\" withString:@"/"];
+        }
+        
+        // Copy name to array
+        [AllFilenames addObject:[strPath copy]];
+        
+        unzCloseCurrentFile( _unzFile );
+        ret = unzGoToNextFile( _unzFile );
+    }  while( ret==UNZ_OK && UNZ_OK!=UNZ_END_OF_LIST_OF_FILE );
+    
+    return [AllFilenames autorelease];
+}
+
+- (BOOL)addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip {
+    // deep copy contents of fromPath directory to toPathInZip
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    BOOL isDir;
+    if (fromPath == nil  || ![fileManager fileExistsAtPath:fromPath isDirectory:&isDir] || !isDir) {
+        return NO;
+    }
+    toPathInZip = toPathInZip != nil ? toPathInZip : @"";
+    
+    NSDirectoryEnumerator *dirEnum = [fileManager enumeratorAtPath:fromPath];
+    if (dirEnum == NULL) {
+        return NO;
+    }
+    BOOL okay = YES;
+    while (NSString *nextFile = [dirEnum nextObject]) {
+        NSString *nextFromPath = [fromPath stringByAppendingPathComponent:nextFile];
+        NSString *nextToPathInZip = [toPathInZip stringByAppendingPathComponent:nextFile];
+        (void)[fileManager fileExistsAtPath:nextFromPath isDirectory:&isDir];
+        if (!isDir) {
+            okay = [self addFileToZip:nextFromPath newname:nextToPathInZip];
+            if (!okay) {
+                break;
+            }
+        }
+    }
+    
+    return okay;
+}
+
+- (BOOL)addDirectoryToZip:(NSString*)fromPath {
+    // deep copy directory contents to top level of zip
+    return [self addDirectoryToZip:fromPath toPathInZip:@""];
+}
+
+- (NSArray*) UnzipFileToData
+{
+    NSMutableArray *array = [NSMutableArray arrayWithCapacity:5];
+    
+    BOOL success = YES;
+    int ret = unzGoToFirstFile( _unzFile );
+    unsigned char           buffer[4096] = {0};
+    
+    if( ret!=UNZ_OK )
+    {
+        [self OutputErrorMessage:@"Failed"];
+        return nil;
+    }
+    
+    do{
+        if( [_password length]==0 )
+            ret = unzOpenCurrentFile( _unzFile );
+        else
+            ret = unzOpenCurrentFilePassword( _unzFile, [_password cStringUsingEncoding:NSASCIIStringEncoding] );
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occurs"];
+            success = NO;
+            break;
+        }
+        // reading data and write to file
+        int read ;
+        unz_file_info   fileInfo ={0};
+        ret = unzGetCurrentFileInfo(_unzFile, &fileInfo, NULL, 0, NULL, 0, NULL, 0);
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occurs while getting file info"];
+            success = NO;
+            unzCloseCurrentFile( _unzFile );
+            break;
+        }
+        char* filename = (char*) malloc( fileInfo.size_filename +1 );
+        unzGetCurrentFileInfo(_unzFile, &fileInfo, filename, fileInfo.size_filename + 1, NULL, 0, NULL, 0);
+        filename[fileInfo.size_filename] = '\0';
+        
+        // check if it contains directory
+        NSString * strPath = [NSString  stringWithCString:filename encoding:NSUTF8StringEncoding];
+        
+        
+        BOOL isDirectory = NO;
+        if( filename[fileInfo.size_filename-1]=='/' || filename[fileInfo.size_filename-1]=='\\')
+            isDirectory = YES;
+        free( filename );
+        
+        
+        if( isDirectory )
+        {
+            // Nothig to do with directories
+            unzCloseCurrentFile( _unzFile );
+            ret = unzGoToNextFile( _unzFile );
+            continue;
+        }
+        
+        NSMutableData *data = [[NSMutableData alloc]  init];
+        while( 1 )
+        {
+            read=unzReadCurrentFile(_unzFile, buffer, 4096);
+            if( read > 0 )
+            {
+                [data appendBytes:buffer length:read];
+            }
+            else if( read<0 )
+            {
+                [self OutputErrorMessage:@"Failed to read zip file"];
+                break;
+            }
+            else
+                break;
+        }
+        NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:data,@"data", strPath, @"filename",nil];
+        [array addObject:dict];
+        unzCloseCurrentFile( _unzFile );
+        ret = unzGoToNextFile( _unzFile );
+    }while( ret==UNZ_OK && UNZ_OK!=UNZ_END_OF_LIST_OF_FILE );
+    
+    return success==NO?nil:[NSArray arrayWithArray:array];
+}
+
+- (NSData*) UnzipFileToDataWithFilename:(NSString *)name
+{
+    BOOL success = YES;
+    int ret = unzGoToFirstFile( _unzFile );
+    unsigned char           buffer[4096] = {0};
+    
+    if( ret!=UNZ_OK )
+    {
+        [self OutputErrorMessage:@"Failed"];
+        return nil;
+    }
+    
+    do{
+        if( [_password length]==0 )
+            ret = unzOpenCurrentFile( _unzFile );
+        else
+            ret = unzOpenCurrentFilePassword( _unzFile, [_password cStringUsingEncoding:NSASCIIStringEncoding] );
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occurs"];
+            success = NO;
+            break;
+        }
+        // reading data and write to file
+        int read ;
+        unz_file_info   fileInfo ={0};
+        ret = unzGetCurrentFileInfo(_unzFile, &fileInfo, NULL, 0, NULL, 0, NULL, 0);
+        if( ret!=UNZ_OK )
+        {
+            [self OutputErrorMessage:@"Error occurs while getting file info"];
+            success = NO;
+            unzCloseCurrentFile( _unzFile );
+            break;
+        }
+        char* filename = (char*) malloc( fileInfo.size_filename +1 );
+        unzGetCurrentFileInfo(_unzFile, &fileInfo, filename, fileInfo.size_filename + 1, NULL, 0, NULL, 0);
+        filename[fileInfo.size_filename] = '\0';
+        
+        // check if it contains directory
+        NSString * strPath = [NSString  stringWithCString:filename encoding:NSUTF8StringEncoding];
+        
+        
+        BOOL isDirectory = NO;
+        if( filename[fileInfo.size_filename-1]=='/' || filename[fileInfo.size_filename-1]=='\\')
+            isDirectory = YES;
+        free( filename );
+        
+        
+        if( isDirectory )
+        {
+            // Nothig to do with directories
+            unzCloseCurrentFile( _unzFile );
+            ret = unzGoToNextFile( _unzFile );
+            continue;
+        }
+        
+        if ([strPath isEqualToString:name])
+        {
+            NSMutableData *data = [[NSMutableData alloc]  init];
+            while( 1 )
+            {
+                read=unzReadCurrentFile(_unzFile, buffer, 4096);
+                if( read > 0 )
+                {
+                    [data appendBytes:buffer length:read];
+                }
+                else if( read<0 )
+                {
+                    [self OutputErrorMessage:@"Failed to read zip file"];
+                    break;
+                }
+                else
+                    break;
+            }
+
+            unzCloseCurrentFile( _unzFile );
+            ret = unzGoToNextFile( _unzFile );
+            return (NSData *)data;
+        }
+        unzCloseCurrentFile( _unzFile );
+        ret = unzGoToNextFile( _unzFile );
+    } while( ret==UNZ_OK && UNZ_OK!=UNZ_END_OF_LIST_OF_FILE );
+    
+    return nil;
 }
 
 #pragma mark wrapper for delegate
