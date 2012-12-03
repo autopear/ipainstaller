@@ -48,7 +48,7 @@ int main (int argc, char **argv, char **envp)
     NSString *deviceString = [UIDevice currentDevice].model;
     if ([deviceString isEqualToString:@"iPhone"] || [deviceString isEqualToString:@"iPod touch"])
         DeviceModel = 1;
-    else if ([DeviceModel isEqualToString:@"iPad"])
+    else if ([deviceString isEqualToString:@"iPad"])
         DeviceModel = 2;
     else
         DeviceModel = 3; //Apple TV maybe?
@@ -294,8 +294,8 @@ int main (int argc, char **argv, char **envp)
                 NSString *appVersion = nil;
                 NSString *appShortVersion = nil;
                 NSString *minSysVersion = nil;
-                NSMutableArray *supportedDeives = [[NSMutableArray alloc] initWithCapacity:0];
-                NSMutableArray *requiredCompatibilities = [[NSMutableArray alloc] initWithCapacity:0];
+                NSMutableArray *supportedDeives = nil;
+                NSMutableArray *requiredCompatibilities = nil;
                 
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
                 
@@ -355,8 +355,64 @@ int main (int argc, char **argv, char **envp)
                 }
                 
                 BOOL shouldUpdateInfoPlist = NO;
+                
+                //Check device family
+                BOOL supportiPhone = NO;
+                BOOL supportiPad = NO;
+                BOOL supportAppleTV = NO;
+                for (unsigned int j=0; j<[supportedDeives count]; j++)
+                {
+                    int d =[[supportedDeives objectAtIndex:j] intValue];
+                    if (d == 1)
+                    {
+                        supportiPhone = YES;
+                        supportiPad = YES;
+                    }
+                    if (d == 2)
+                        supportiPad = YES;
+                    if (d == 3)
+                        supportAppleTV = YES;
+                }
+                NSString *supportedDeivesString = nil;
+                if (!supportiPhone && supportiPad && !supportAppleTV)
+                    supportedDeivesString = @"iPad";
+                else if (!supportiPhone && !supportiPad && supportAppleTV)
+                    supportedDeivesString = @"Apple TV";
+                else if (supportiPhone && supportiPad && !supportAppleTV)
+                    supportedDeivesString = @"iPhone, iPod touch or iPad";
+                else if (supportiPhone && !supportiPad && supportAppleTV)
+                    supportedDeivesString = @"iPhone, iPod touch or Apple TV";
+                else if (!supportiPhone && supportiPad && supportAppleTV)
+                    supportedDeivesString = @"iPad or Apple TV";
+                else if (supportiPhone && !supportiPad && !supportAppleTV)
+                    supportedDeivesString = @"iPhone or iPod touch"; //Should not reach here, normally support iPhone should support iPad too
+                else
+                    supportedDeivesString = @"iPhone, iPod touch, iPad or Apple TV"; //Should not reach here
+
+                if ((DeviceModel == 1 && !supportiPhone) //Not support iPhone / iPod touch
+                    || (DeviceModel == 2 && !supportiPad) //Not support iPad
+                    || (DeviceModel == 3 && !supportAppleTV)) //Not support Apple TV
+                {
+                    if (quietInstall == 0)
+                        printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+
+                    //Device not supported
+                    if (forceInstall)
+                    {
+                        [supportedDeives addObject:[NSNumber numberWithInt:DeviceModel]];
+                        [infoDict setObject:[supportedDeives sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIDeviceFamily"];
+                        shouldUpdateInfoPlist = YES;
+                    }
+                    else
+                        continue;
+                }
+                
+                //Check minimun system requirement
                 if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedAscending)
                 {
+                    if (quietInstall == 0)
+                        printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+
                     //System version is less than the min required version
                     if (forceInstall)
                     {
@@ -364,10 +420,39 @@ int main (int argc, char **argv, char **envp)
                         shouldUpdateInfoPlist = YES;
                     }
                     else
+                        continue;
+                }
+                
+                //Chekc compatibilities
+                if (requiredCompatibilities)
+                {
+                    BOOL isCompatible = YES;
+                    for (unsigned int j=0; j<[requiredCompatibilities count]; j++)
+                    {
+                        id compatibility = [requiredCompatibilities objectAtIndex:j];
+                        if([compatibility isKindOfClass:[NSString class]])
+                        {
+                            //Is array
+                        }
+                        else if([compatibility isKindOfClass:[NSDictionary class]])
+                        {
+                            //is dictionary
+                        }
+                        else
+                        {
+                            //is something else
+                        }
+                    }
+                    if (!isCompatible)
                     {
                         if (quietInstall == 0)
-                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
-                        continue;
+                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [appVersion cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                        if (forceInstall)
+                        {
+                            
+                        }
+                        else
+                            continue;
                     }
                 }
                 
