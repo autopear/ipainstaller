@@ -1,5 +1,4 @@
 #import <UIKit/UIKit.h>
-#import <objc/runtime.h>
 #import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
@@ -56,27 +55,20 @@ BOOL removeAllContentsUnderPath(NSString *path)
     }
     return YES;
 }
-/*
+
 void setPermissionsForPath(NSString *path, NSString *executablePath)
 {
     NSFileManager *fileMgr = [NSFileManager defaultManager];
 
     //Set root folder's attributes
     NSDictionary *directoryAttributes = [fileMgr attributesOfItemAtPath:path error:nil];
-    NSMutableDictionary *defaultDirectoryAttributes = [directoryAttributes mutableCopy];//[NSMutableDictionary dictionaryWithCapacity:[[directoryAttributes allKeys] count]];
-    
-    
-    
-    
-    for (NSString *key in [directoryAttributes allKeys])
-    {
-        if ([key isEqualToString:NSFileOwnerAccountName] || [key isEqualToString:NSFileGroupOwnerAccountName])
-            [defaultDirectoryAttributes setObject:@"mobile" forkey:key];
-        else if ([key isEqualToString:NSFilePosixPermissions])
-            [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:0755] forKey:key];
-        else
-            [defaultDirectoryAttributes setObject:[directoryAttributes objectForKey:key] forKey:key];
-    }
+    NSMutableDictionary *defaultDirectoryAttributes = [NSMutableDictionary dictionaryWithCapacity:[directoryAttributes count]];
+    [defaultDirectoryAttributes setDictionary:directoryAttributes];
+
+    [defaultDirectoryAttributes setObject:@"mobile" forKey:NSFileOwnerAccountName];
+    [defaultDirectoryAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+    [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:0755] forKey:NSFilePosixPermissions];
+
     [fileMgr setAttributes:defaultDirectoryAttributes ofItemAtPath:path error:nil];
 
     for (NSString *subPath in [fileMgr contentsOfDirectoryAtPath:path error:nil])
@@ -84,17 +76,13 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
         NSDictionary *attributes = [fileMgr attributesOfItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular])
         {
-            NSMutableDictionary *defaultAttributes = [NSMutableDictionary dictionaryWithCapacity:[[directoryAttributes allKeys] count]];
-            for (NSString *key in [attributes allKeys])
-            {
-                if ([key isEqualToString:NSFileOwnerAccountName] || [key isEqualToString:NSFileGroupOwnerAccountName])
-                    [defaultAttributes setObject:@"mobile" forkey:key];
-                else if ([key isEqualToString:NSFilePosixPermissions])
-                    [defaultAttributes setObject:[NSNumber numberWithInt:([[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath] ? 0755 : 0644)] forKey:key];
-                else
-                    [defaultAttributes setObject:[attributes objectForKey:key] forKey:key];
-            }
-            
+            NSMutableDictionary *defaultAttributes = [NSMutableDictionary dictionaryWithCapacity:[directoryAttributes count]];
+            [defaultAttributes setDictionary:directoryAttributes];
+
+            [defaultAttributes setObject:@"mobile" forKey:NSFileOwnerAccountName];
+            [defaultAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+            [defaultAttributes setObject:[NSNumber numberWithInt:([[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath] ? 0755 : 0644)] forKey:NSFilePosixPermissions];
+
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         }
         else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
@@ -106,7 +94,7 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
             //Ignore symblic links
         }
     }
-}*/
+}
 
 int main (int argc, char **argv, char **envp)
 {
@@ -139,7 +127,7 @@ int main (int argc, char **argv, char **envp)
         printf("%s\n", [helpString cStringUsingEncoding:NSUTF8StringEncoding]);
         return IPA_FAILED;
     }
-    
+
     NSMutableArray *ipaFiles = [[NSMutableArray alloc] initWithCapacity:0];
     NSMutableArray *filesNotFound = [[NSMutableArray alloc] initWithCapacity:0];
     BOOL noParameters = NO;
@@ -208,7 +196,7 @@ int main (int argc, char **argv, char **envp)
                 [filesNotFound addObject:arg];
         }
     }
-    
+
     if ((showAbout && showHelp )
         || (showAbout && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
         || (showHelp && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
@@ -259,10 +247,10 @@ int main (int argc, char **argv, char **envp)
         else
             printf("IPA files will be deleted after installation.\n");
     }
-    
+
     if (quietInstall == 0 && (cleanInstall || forceInstall || notRestore || removeMetadata || deleteFile))
         printf("\n");
-    
+
     NSFileManager *fileMgr = [NSFileManager defaultManager];
 
     int successfulInstalls = 0;
@@ -360,7 +348,7 @@ int main (int argc, char **argv, char **envp)
                 else
                     isValidIPA = NO;
                 [ipaArchive release];
-                
+
                 if (!isValidIPA)
                 {
                     if (quietInstall < 2)
@@ -742,7 +730,7 @@ int main (int argc, char **argv, char **envp)
                         NSString *installedVerion = [installedAppDict objectForKey:@"CFBundleVersion"];
                         NSString *installedShortVersion = [installedAppDict objectForKey:@"CFBundleShortVersionString"];
                         NSString *installedLocation = [installedAppDict objectForKey:@"Container"];
-                        //NSString *executablePath = [[installedAppDict objectForKey:@"Path"] stringByAppendingPathComponent:[installedAppDict objectForKey:@"CFBundleExecutable"]];
+                        NSString *appExecutablePath = [[installedAppDict objectForKey:@"Path"] stringByAppendingPathComponent:[installedAppDict objectForKey:@"CFBundleExecutable"]];
 
                         BOOL appInstalled = YES;
                         if (![installedVerion isEqualToString:appVersion])
@@ -870,7 +858,7 @@ int main (int argc, char **argv, char **envp)
                                     if ([ipaArchive unzipFileWithName:@"Container" toPath:[workPath stringByAppendingPathComponent:@"Container"] overwrite:YES])
                                     {
                                         NSString *containerPath = [workPath stringByAppendingPathComponent:@"Container"];
-                                        
+
                                         NSArray *containerContents = [fileMgr contentsOfDirectoryAtPath:containerPath error:nil];
                                         if ([containerContents count] > 0)
                                         {
@@ -966,14 +954,14 @@ int main (int argc, char **argv, char **envp)
                             if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:&isFile])
                             {
                                 if (quietInstall == 0)
-                                    printf("Remove iTunesMetadata.plist for %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Removing iTunesMetadata.plist for %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                                 if (![fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil] && quietInstall < 2)
                                     printf("Failed to remove %s.\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
 
                             //Set overall permission
-                            system([[NSString stringWithFormat:@"chown -R mobile:mobile %@", installedLocation] cStringUsingEncoding:NSUTF8StringEncoding]);
-                            //setPermissionsForPath(installedLocation, executablePath);
+                            //system([[NSString stringWithFormat:@"chown -R mobile:mobile %@", installedLocation] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            setPermissionsForPath(installedLocation, appExecutablePath);
                         }
                         else
                         {
@@ -1011,7 +999,7 @@ int main (int argc, char **argv, char **envp)
                         printf("Failed to delete %s.\nReason: %s\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
                     [err release];
                 }
-                
+
                 if (quietInstall == 0 && i < [ipaFiles count]-1)
                     printf("\n");
             }
