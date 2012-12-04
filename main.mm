@@ -181,7 +181,7 @@ int main (int argc, char **argv, char **envp)
     for (unsigned int i=0; i<[filesNotFound count]; i++)
     {
         if (quietInstall < 2)
-            printf("File not found at path: \"%s\"'.\n", [[filesNotFound objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+            printf("File not found at path: %s.\n", [[filesNotFound objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
     }
 
     if ([ipaFiles count] < 1)
@@ -204,7 +204,7 @@ int main (int argc, char **argv, char **envp)
     if (quietInstall == 0 && deleteFile)
     {
         if ([ipaFiles count] == 1)
-            printf("\"%s\" will be deleted after installation.\n", [[[ipaFiles objectAtIndex:0] lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
+            printf("%s will be deleted after installation.\n", [[[ipaFiles objectAtIndex:0] lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
         else
             printf("IPA files will be deleted after installation.\n");
     }
@@ -226,7 +226,7 @@ int main (int argc, char **argv, char **envp)
             {
                 file = [NSTemporaryDirectory() stringByAppendingPathComponent:[file lastPathComponent]];
                 if ([[file lastPathComponent] hasPrefix:@"com.autopear.installipa."] && ![fileMgr removeItemAtPath:file error:nil] && quietInstall < 2)
-                    printf("Failed to delete \"%s\".\n", [file cStringUsingEncoding:NSUTF8StringEncoding]);
+                    printf("Failed to delete %s.\n", [file cStringUsingEncoding:NSUTF8StringEncoding]);
             }
 
             NSString *workPath = nil;
@@ -239,11 +239,12 @@ int main (int argc, char **argv, char **envp)
             }
 
             //Create working directory
-            NSMutableDictionary *attrMobile = [NSMutableDictionary dictionary];
-            [attrMobile setObject:@"mobile" forKey:NSFileOwnerAccountName];
-            [attrMobile setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+            //NSMutableDictionary *attrMobile = [NSMutableDictionary dictionary];
+            //[attrMobile setObject:@"mobile" forKey:NSFileOwnerAccountName];
+            //[attrMobile setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
 
-            if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:attrMobile error:NULL] && quietInstall < 2)
+            //if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:attrMobile error:NULL] && quietInstall < 2)
+            if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:nil error:NULL] && quietInstall < 2)
             {
                 printf("Failed to create workspace.\n");
                 return IPA_FAILED;
@@ -262,7 +263,7 @@ int main (int argc, char **argv, char **envp)
 
                 NSString *ipa = [ipaFiles objectAtIndex:i];
                 if (quietInstall == 0)
-                    printf("Analyzing \"%s\"'...\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
+                    printf("Analyzing %s...\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
 
                 BOOL isValidIPA = YES;
                 BOOL hasContainer = NO;
@@ -312,7 +313,7 @@ int main (int argc, char **argv, char **envp)
                 if (!isValidIPA)
                 {
                     if (quietInstall < 2)
-                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
@@ -343,7 +344,7 @@ int main (int argc, char **argv, char **envp)
                 else
                 {
                     if (quietInstall < 2)
-                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
@@ -354,7 +355,7 @@ int main (int argc, char **argv, char **envp)
                 if (!appIdentifier || !appDisplayName || !appVersion)
                 {
                     if (quietInstall < 2)
-                        printf("\"%s\" is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
@@ -408,12 +409,12 @@ int main (int argc, char **argv, char **envp)
                             if (forceInstall)
                             {
                                 if (quietInstall == 0)
-                                    printf("A newer version \"%s\" of \"%s\" is already installed. Will force to downgrade.%s", [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                    printf("%s (v%s) is already installed. Will force to downgrade.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                             }
                             else
                             {
                                 if (quietInstall < 2)
-                                printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                printf("%s (v%s) is already installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                                 if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                                     printf("Failed to clean caches.\n");
@@ -430,12 +431,12 @@ int main (int argc, char **argv, char **envp)
                             if (forceInstall)
                             {
                                 if (quietInstall == 0)
-                                    printf("A newer version \"%s\" of \"%s\" is already installed. Will force to downgrade.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                    printf("%s (v%s) is already installed. Will force to downgrade.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                             }
                             else
                             {
                                 if (quietInstall < 2)
-                                    printf("A newer version \"%s\" of \"%s\" is already installed.%s", [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                    printf("%s (v%s) is already installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                                 if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                                     printf("Failed to clean caches.\n");
 
@@ -488,7 +489,7 @@ int main (int argc, char **argv, char **envp)
                     if (forceInstall)
                     {
                         if (quietInstall == 0)
-                            printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                            printf("%s (v%s) requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                         [supportedDeives addObject:[NSNumber numberWithInt:DeviceModel]];
                         [infoDict setObject:[supportedDeives sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIDeviceFamily"];
@@ -497,7 +498,7 @@ int main (int argc, char **argv, char **envp)
                     else
                     {
                         if (quietInstall < 2)
-                            printf("\"%s\" version \"%s\" requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                            printf("%s (v%s) requires %s while your device is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [supportedDeivesString cStringUsingEncoding:NSUTF8StringEncoding], [deviceString cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                         if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                             printf("Failed to clean caches.\n");
@@ -513,7 +514,7 @@ int main (int argc, char **argv, char **envp)
                     if (forceInstall)
                     {
                         if (quietInstall == 0)
-                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                            printf("%s (v%s) requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                         [infoDict setObject:SystemVersion forKey:@"MinimumOSVersion"];
                         shouldUpdateInfoPlist = YES;
@@ -521,7 +522,7 @@ int main (int argc, char **argv, char **envp)
                     else
                     {
                         if (quietInstall < 2)
-                            printf("\"%s\" version \"%s\" requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
+                            printf("%s (v%s) requires iOS %s while your system is %s.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], [minSysVersion cStringUsingEncoding:NSUTF8StringEncoding], [SystemVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) || forceInstall ? "\n" : "\n\n");
 
                         if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                             printf("Failed to clean caches.\n");
@@ -616,7 +617,7 @@ int main (int argc, char **argv, char **envp)
 
                 if (shouldUpdateInfoPlist && ![infoDict writeToFile:pathInfoPlist atomically:YES] && quietInstall < 2)
                 {
-                    printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                    printf("Failed to use force installation mode, %s (v%s) will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                     continue;
                 }
 
@@ -626,7 +627,7 @@ int main (int argc, char **argv, char **envp)
                     if (![fileMgr removeItemAtPath:installPath error:nil])
                     {
                         if (quietInstall < 2)
-                            printf("Failed to delete \"%s\".\n", [installPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                            printf("Failed to delete %s.\n", [installPath cStringUsingEncoding:NSUTF8StringEncoding]);
 
                         if (![fileMgr removeItemAtPath:workPath error:nil] && quietInstall < 2)
                             printf("Failed to clean caches.\n");
@@ -655,7 +656,7 @@ int main (int argc, char **argv, char **envp)
                     if ([tmpArchive openZipFile2:installPath withZipModel:APPEND_STATUS_ADDINZIP] && ![tmpArchive addFileToZip:pathInfoPlist newname:infoPath])
                     {
                         if (quietInstall < 2)
-                            printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                            printf("Failed to use force installation mode, %s (v%s) will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                         //Delete copied file
                         [fileMgr removeItemAtPath:installPath error:nil];
@@ -677,7 +678,7 @@ int main (int argc, char **argv, char **envp)
                 }
 
                 if (quietInstall == 0)
-                    printf("%snstalling \"%s\" version \"%s\"...\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
+                    printf("%snstalling %s (v%s)...\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
                 int ret = install(installPath, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, installPath);
                 if (ret == 0)
                 {
@@ -704,27 +705,28 @@ int main (int argc, char **argv, char **envp)
                             //Recover the original Info.plist in force installation
                             if (shouldUpdateInfoPlist)
                             {
-                                if ([fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil])
+                                NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedLocation, [[infoPath pathComponents] objectAtIndex:1]];
+                                if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:&isFile])
                                 {
-                                    NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedLocation, [[infoPath pathComponents] objectAtIndex:1]];
-                                    if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:&isFile])
+                                    if ([fileMgr removeItemAtPath:pathInstalledInfoPlist error:nil])
                                     {
-                                        if ([fileMgr removeItemAtPath:pathInstalledInfoPlist error:nil])
+                                        if ([fileMgr moveItemAtPath:pathOriginalInfoPlist toPath:pathInstalledInfoPlist error:nil])
                                         {
-                                            if ([fileMgr moveItemAtPath:pathOriginalInfoPlist toPath:pathInstalledInfoPlist error:nil])
-                                            {
-                                                [fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil];
-                                                if ([fileMgr fileExistsAtPath:pathOriginalInfoPlist])
-                                                    [fileMgr removeItemAtPath:pathOriginalInfoPlist error:nil];
-                                            }
+                                            //[fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil];
+                                            if ([fileMgr fileExistsAtPath:pathOriginalInfoPlist])
+                                                [fileMgr removeItemAtPath:pathOriginalInfoPlist error:nil];
                                         }
                                     }
                                 }
+
+                                //if ([fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil])
+                                //{
+                                //}
                             }
 
                             successfulInstalls++;
                             if (quietInstall == 0)
-                                printf("%snstalled \"%s\" version \"%s\".\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
+                                printf("%snstalled %s (v%s).\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
 
                             BOOL tempEnableClean = NO;
                             if (!cleanInstall && hasContainer && !notRestore)
@@ -737,7 +739,7 @@ int main (int argc, char **argv, char **envp)
                             if (appAlreadyInstalled && cleanInstall)
                             {
                                 if (quietInstall == 0)
-                                    printf("Cleaning old contents of \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Cleaning old contents of %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
 
                                 NSString *dirDocuments = [installedLocation stringByAppendingPathComponent:@"Documents"];
                                 NSString *dirLibrary = [installedLocation stringByAppendingPathComponent:@"Library"];
@@ -805,7 +807,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 if (!allContentsCleaned && quietInstall < 2)
-                                    printf("Failed to clean \"%s\"'s old contents.\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Failed to clean old contents of %s.\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
 
                             if (tempEnableClean)
@@ -917,9 +919,9 @@ int main (int argc, char **argv, char **envp)
                             if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:&isFile])
                             {
                                 if (quietInstall == 0)
-                                    printf("Remove iTunesMetadata.plist for \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Remove iTunesMetadata.plist for %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                                 if (![fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil] && quietInstall < 2)
-                                    printf("Failed to remove \"%s\".\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Failed to remove %s.\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
 
                             //Set overall permission
@@ -928,27 +930,26 @@ int main (int argc, char **argv, char **envp)
                         else
                         {
                             if (quietInstall < 2)
-                                printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
                         }
                     }
                     else
                     {
                         if (quietInstall < 2)
-                            printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                            printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
                     }
                 }
                 else
                 {
-                    NSLog(@"failed with return value : %d", ret);
                     if (quietInstall < 2)
-                        printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                        printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
                 }
 
                 //Delete tmp ipa file
                 if (!removeAllContentsUnderPath(workPath))
                 {
                     if (quietInstall < 2)
-                        printf("Failed to delete \"%s\".%s", [installPath cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("Failed to delete %s.%s", [installPath cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     return IPA_FAILED;
                 }
@@ -959,7 +960,7 @@ int main (int argc, char **argv, char **envp)
                     NSError *err;
                     [fileMgr removeItemAtPath:ipa error:&err];
                     if (err && quietInstall < 2)
-                        printf("Failed to delete \"%s\".\nReason: %s\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
+                        printf("Failed to delete %s.\nReason: %s\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
                     [err release];
                 }
                 
