@@ -10,7 +10,6 @@
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
 
 #define IPA_FAILED -1
-#define IPA_QUIT_NORMAL 0
 
 typedef int (*MobileInstallationInstall)(NSString *path, NSDictionary *dict, void *na, NSString *backpath);
 
@@ -120,7 +119,7 @@ int main (int argc, char **argv, char **envp)
 
     NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -n  Do not restore saved documents and other resources.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.", executableName];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear\nCopyright (C) 2012 autopear. All rights reserved.", executableName, EXECUTABLE_VERSION];
 
     if ([arguments count] == 1)
     {
@@ -352,7 +351,7 @@ int main (int argc, char **argv, char **envp)
                 if (!isValidIPA)
                 {
                     if (quietInstall < 2)
-                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid IPA.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
@@ -383,7 +382,7 @@ int main (int argc, char **argv, char **envp)
                 else
                 {
                     if (quietInstall < 2)
-                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid IPA.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
@@ -394,7 +393,7 @@ int main (int argc, char **argv, char **envp)
                 if (!appIdentifier || !appDisplayName || !appVersion)
                 {
                     if (quietInstall < 2)
-                        printf("%s is not a valid ipa.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("%s is not a valid IPA.%s", [[ipaFiles objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                         printf("Failed to clean caches.\n");
