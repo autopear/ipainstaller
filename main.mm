@@ -368,12 +368,28 @@ int main (int argc, char **argv, char **envp)
 
                 //Make a copy of extracted Info.plist
                 NSString *pathOriginalInfoPlist = [NSString stringWithFormat:@"%@.original", pathInfoPlist];
-                if (![fileMgr copyItemAtPath:pathInfoPlist toPath:pathOriginalInfoPlist error:nil])
+                if ([fileMgr fileExistsAtPath:pathOriginalInfoPlist])
                 {
-                   //Force installation has to be disabled.
-                    if (forceInstall && quietInstall < 2)
-                        printf("Force installation has to be disabled.\n");
-                    forceInstall = NO;
+                    if (![fileMgr removeItemAtPath:pathOriginalInfoPlist error:nil])
+                    {
+                        if (![fileMgr copyItemAtPath:pathInfoPlist toPath:pathOriginalInfoPlist error:nil])
+                        {
+                            //Force installation has to be disabled.
+                            if (forceInstall && quietInstall < 2)
+                                printf("Force installation has to be disabled.\n");
+                            forceInstall = NO;
+                        }
+                    }
+                }
+                else
+                {
+                    if (![fileMgr copyItemAtPath:pathInfoPlist toPath:pathOriginalInfoPlist error:nil])
+                    {
+                        //Force installation has to be disabled.
+                        if (forceInstall && quietInstall < 2)
+                            printf("Force installation has to be disabled.\n");
+                        forceInstall = NO;
+                    }
                 }
 
                 //Check installed stats
@@ -808,12 +824,6 @@ int main (int argc, char **argv, char **envp)
                                     if ([ipaArchive unzipDirectoryWithName:@"Container" toPath:workPath])
                                     {
                                         NSString *containerPath = [workPath stringByAppendingPathComponent:@"Container"];
-                                        //Delete .GlobalPreferences and com.apple.PeoplePicker.plist links
-                                        NSString *containerPreferencesPath = [[containerPath stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Prefernences"];
-                                        if ([fileMgr fileExistsAtPath:[containerPreferencesPath stringByAppendingPathComponent:@".GlobalPreferences.plist"]])
-                                            [fileMgr removeItemAtPath:[containerPreferencesPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] error:nil];
-                                        if ([fileMgr fileExistsAtPath:[containerPreferencesPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"]])
-                                            [fileMgr removeItemAtPath:[containerPreferencesPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] error:nil];
                                         
                                         NSArray *containerContents = [fileMgr contentsOfDirectoryAtPath:containerPath error:nil];
                                         if ([containerContents count] > 0)
@@ -821,8 +831,81 @@ int main (int argc, char **argv, char **envp)
                                             BOOL allSuccessfull = YES;
                                             for (unsigned int j=0; j<[containerContents count]; j++)
                                             {
-                                                if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:[containerContents objectAtIndex:j]] toPath:[installedLocation stringByAppendingPathComponent:[containerContents objectAtIndex:j]] error:nil])
-                                                    allSuccessfull = NO;
+                                                NSString *dirName = [containerContents objectAtIndex:j];
+                                                if ([dirName isEqualToString:@"Documents"])
+                                                {
+                                                    NSString *containerDocumentsPath = [containerPath stringByAppendingPathComponent:dirName];
+                                                    NSArray *containerDocumentsContents = [fileMgr contentsOfDirectoryAtPath:containerDocumentsPath error:nil];
+                                                    for (unsigned int k=0; k<[containerDocumentsContents count]; k++)
+                                                    {
+                                                        if (![fileMgr moveItemAtPath:[containerDocumentsPath stringByAppendingPathComponent:[containerDocumentsContents objectAtIndex:k]] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:[containerDocumentsContents objectAtIndex:k]] error:nil])
+                                                            allSuccessfull = NO;
+                                                    }
+                                                }
+                                                else if ([dirName isEqualToString:@"Library"])
+                                                {
+                                                    NSString *containerLibraryPath = [containerPath stringByAppendingPathComponent:dirName];
+                                                    NSArray *containerLibraryContents = [fileMgr contentsOfDirectoryAtPath:containerLibraryPath error:nil];
+                                                    for (unsigned int k=0; k<[containerLibraryContents count]; k++)
+                                                    {
+                                                        NSString *dirLibraryName = [containerLibraryContents objectAtIndex:k];
+                                                        if ([dirLibraryName isEqualToString:@"Caches"])
+                                                        {
+                                                            NSString *dirCachePath = [containerLibraryPath stringByAppendingPathComponent:dirLibraryName];
+                                                            NSArray *containerCachesContents = [fileMgr contentsOfDirectoryAtPath:dirCachePath error:nil];
+                                                            for (unsigned int m=0; m<[containerCachesContents count]; m++)
+                                                            {
+                                                                if (![fileMgr moveItemAtPath:[dirCachePath stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] toPath:[[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] error:nil])
+                                                                    allSuccessfull = NO;
+                                                            }
+                                                        }
+                                                        else if ([dirLibraryName isEqualToString:@"Preferences"])
+                                                        {
+                                                            NSString *dirPreferencesPath = [containerLibraryPath stringByAppendingPathComponent:dirLibraryName];
+                                                            NSArray *containerPreferencesContents = [fileMgr contentsOfDirectoryAtPath:dirPreferencesPath error:nil];
+                                                            for (unsigned int m=0; m<[containerPreferencesContents count]; m++)
+                                                            {
+                                                                NSString *preferencesFileName = [containerPreferencesContents objectAtIndex:m];
+                                                                if (![preferencesFileName isEqualToString:@".GlobalPreferences.plist"] && ![preferencesFileName isEqualToString:@"com.apple.PeoplePicker.plist"])
+                                                                {
+                                                                    if (![fileMgr moveItemAtPath:[dirPreferencesPath stringByAppendingPathComponent:preferencesFileName] toPath:[[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:preferencesFileName] error:nil])
+                                                                        allSuccessfull = NO;
+                                                                }
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            if (![fileMgr moveItemAtPath:[containerLibraryPath stringByAppendingPathComponent:dirLibraryName] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] error:nil])
+                                                                allSuccessfull = NO;
+                                                        }
+                                                    }
+                                                }
+                                                else if ([dirName isEqualToString:@"tmp"])
+                                                {
+                                                    NSString *containerTmpPath = [containerPath stringByAppendingPathComponent:dirName];
+                                                    NSArray *containerTmpContents = [fileMgr contentsOfDirectoryAtPath:containerTmpPath error:nil];
+                                                    for (unsigned int k=0; k<[containerTmpContents count]; k++)
+                                                    {
+                                                        if (![fileMgr moveItemAtPath:[containerTmpPath stringByAppendingPathComponent:[containerTmpContents objectAtIndex:k]] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:[containerTmpContents objectAtIndex:k]] error:nil])
+                                                            allSuccessfull = NO;
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    if ([fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:dirName]])
+                                                    {
+                                                        if ([fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil])
+                                                        {
+                                                            if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:dirName] toPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil])
+                                                                allSuccessfull = NO;
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:dirName] toPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil])
+                                                            allSuccessfull = NO;
+                                                    }
+                                                }
                                             }
                                             if (!allSuccessfull && quietInstall < 2)
                                                 printf("Cannot restore all saved documents and other resources.\n");
