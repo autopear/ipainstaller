@@ -64,9 +64,12 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
     NSMutableDictionary *defaultDirectoryAttributes = [NSMutableDictionary dictionaryWithCapacity:[directoryAttributes count]];
     [defaultDirectoryAttributes setDictionary:directoryAttributes];
 
+    [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:501] forKey:NSFileOwnerAccountID];
     [defaultDirectoryAttributes setObject:@"mobile" forKey:NSFileOwnerAccountName];
+    [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:501] forKey:NSFileGroupOwnerAccountID];
     [defaultDirectoryAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
-    [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:0755] forKey:NSFilePosixPermissions];
+
+    [defaultDirectoryAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
 
     [fileMgr setAttributes:defaultDirectoryAttributes ofItemAtPath:path error:nil];
 
@@ -78,12 +81,15 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
             NSMutableDictionary *defaultAttributes = [NSMutableDictionary dictionaryWithCapacity:[directoryAttributes count]];
             [defaultAttributes setDictionary:directoryAttributes];
 
+            [defaultAttributes setObject:[NSNumber numberWithInt:501] forKey:NSFileOwnerAccountID];
             [defaultAttributes setObject:@"mobile" forKey:NSFileOwnerAccountName];
+            [defaultAttributes setObject:[NSNumber numberWithInt:501] forKey:NSFileGroupOwnerAccountID];
             [defaultAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
+
             if (executablePath && [[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath])
-                [defaultAttributes setObject:[NSNumber numberWithInt:0755] forKey:NSFilePosixPermissions];
+                [defaultAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
             else
-                 [defaultAttributes setObject:[NSNumber numberWithInt:0644] forKey:NSFilePosixPermissions];
+                 [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
   
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         }
@@ -101,17 +107,6 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
 int main (int argc, char **argv, char **envp)
 {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-
-    //Need to be run as mobile
-    if (getuid() != 501)
-        setuid(501);
-
-    //Recheck
-    if (getuid() != 501)
-    {
-        printf("Failed to get mobile privilege.\n");
-        return IPA_FAILED;
-    }
 
     //Get system info
     SystemVersion = [UIDevice currentDevice].systemVersion;
@@ -210,6 +205,9 @@ int main (int argc, char **argv, char **envp)
         }
     }
 
+    //Convert mutableArray to NSArray
+    ///NSArray *ipaFiles = [NSArray arrayWithArray:mutableIpaFiles];
+
     if ((showAbout && showHelp )
         || (showAbout && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
         || (showHelp && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
@@ -290,12 +288,6 @@ int main (int argc, char **argv, char **envp)
                     break;
             }
 
-            //Create working directory
-            //NSMutableDictionary *attrMobile = [NSMutableDictionary dictionary];
-            //[attrMobile setObject:@"mobile" forKey:NSFileOwnerAccountName];
-            //[attrMobile setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
-
-            //if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:attrMobile error:NULL] && quietInstall < 2)
             if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:nil error:NULL] && quietInstall < 2)
             {
                 printf("Failed to create workspace.\n");
@@ -590,7 +582,7 @@ int main (int argc, char **argv, char **envp)
                     //requiredCapabilities is NSArray, contains only strings
                     if ([requiredCapabilities isKindOfClass:[NSArray class]])
                     {
-                        NSMutableArray *newCapabilities = (NSMutableArray *)requiredCapabilities;
+                        NSMutableArray *newCapabilities = [[NSMutableArray alloc] init];
 
                         for (unsigned int j=0; j<[(NSArray *)requiredCapabilities count]; j++)
                         {
@@ -757,6 +749,7 @@ int main (int argc, char **argv, char **envp)
                 setPermissionsForPath(workPath, nil);
 
                 int ret = install(installPath, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, installPath);
+
                 if (ret == 0)
                 {
                     //Get installation path
@@ -1031,11 +1024,8 @@ int main (int argc, char **argv, char **envp)
                 //Delete original ipa
                 if (deleteFile && [fileMgr fileExistsAtPath:ipa])
                 {
-                    NSError *err;
-                    [fileMgr removeItemAtPath:ipa error:&err];
-                    if (err && quietInstall < 2)
-                        printf("Failed to delete %s.\nReason: %s\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
-                    [err release];
+                    if (![fileMgr removeItemAtPath:ipa error:nil] && quietInstall < 2)
+                        printf("Failed to delete %s.\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding]);
                 }
 
                 if (quietInstall == 0 && i < [ipaFiles count]-1)
