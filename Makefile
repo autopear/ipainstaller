@@ -15,14 +15,12 @@ installipa_SUBPROJECTS = ZipArchive/minizip
 include theos/makefiles/tool.mk
 
 before-package::
-	mv -f _/usr/bin/installipa _/usr/bin/install-ipa
-	mv -f _/usr/bin/installipa.sh _/usr/bin/installipa
-	touch -r _/usr/bin/install-ipa _
-	touch -r _/usr/bin/install-ipa _/DEBIAN
-	touch -r _/usr/bin/install-ipa _/DEBIAN/*
-	touch -r _/usr/bin/install-ipa _/usr
-	touch -r _/usr/bin/install-ipa _/usr/bin
-	touch -r _/usr/bin/install-ipa _/usr/bin/*
+	touch -r _/usr/bin/installipa _
+	touch -r _/usr/bin/installipa _/DEBIAN
+	touch -r _/usr/bin/installipa _/DEBIAN/*
+	touch -r _/usr/bin/installipa _/usr
+	touch -r _/usr/bin/installipa _/usr/bin
+	touch -r _/usr/bin/installipa _/usr/bin/installipa.sh
 
 after-package::
 	rm -fr .theos/packages/*
