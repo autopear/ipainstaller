@@ -56,6 +56,57 @@ BOOL removeAllContentsUnderPath(NSString *path)
     }
     return YES;
 }
+/*
+void setPermissionsForPath(NSString *path, NSString *executablePath)
+{
+    NSFileManager *fileMgr = [NSFileManager defaultManager];
+
+    //Set root folder's attributes
+    NSDictionary *directoryAttributes = [fileMgr attributesOfItemAtPath:path error:nil];
+    NSMutableDictionary *defaultDirectoryAttributes = [directoryAttributes mutableCopy];//[NSMutableDictionary dictionaryWithCapacity:[[directoryAttributes allKeys] count]];
+    
+    
+    
+    
+    for (NSString *key in [directoryAttributes allKeys])
+    {
+        if ([key isEqualToString:NSFileOwnerAccountName] || [key isEqualToString:NSFileGroupOwnerAccountName])
+            [defaultDirectoryAttributes setObject:@"mobile" forkey:key];
+        else if ([key isEqualToString:NSFilePosixPermissions])
+            [defaultDirectoryAttributes setObject:[NSNumber numberWithInt:0755] forKey:key];
+        else
+            [defaultDirectoryAttributes setObject:[directoryAttributes objectForKey:key] forKey:key];
+    }
+    [fileMgr setAttributes:defaultDirectoryAttributes ofItemAtPath:path error:nil];
+
+    for (NSString *subPath in [fileMgr contentsOfDirectoryAtPath:path error:nil])
+    {
+        NSDictionary *attributes = [fileMgr attributesOfItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
+        if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular])
+        {
+            NSMutableDictionary *defaultAttributes = [NSMutableDictionary dictionaryWithCapacity:[[directoryAttributes allKeys] count]];
+            for (NSString *key in [attributes allKeys])
+            {
+                if ([key isEqualToString:NSFileOwnerAccountName] || [key isEqualToString:NSFileGroupOwnerAccountName])
+                    [defaultAttributes setObject:@"mobile" forkey:key];
+                else if ([key isEqualToString:NSFilePosixPermissions])
+                    [defaultAttributes setObject:[NSNumber numberWithInt:([[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath] ? 0755 : 0644)] forKey:key];
+                else
+                    [defaultAttributes setObject:[attributes objectForKey:key] forKey:key];
+            }
+            
+            [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
+        }
+        else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
+        {
+            setPermissionsForPath([path stringByAppendingPathComponent:subPath], executablePath);
+        }
+        else
+        {
+            //Ignore symblic links
+        }
+    }
+}*/
 
 int main (int argc, char **argv, char **envp)
 {
@@ -691,6 +742,7 @@ int main (int argc, char **argv, char **envp)
                         NSString *installedVerion = [installedAppDict objectForKey:@"CFBundleVersion"];
                         NSString *installedShortVersion = [installedAppDict objectForKey:@"CFBundleShortVersionString"];
                         NSString *installedLocation = [installedAppDict objectForKey:@"Container"];
+                        //NSString *executablePath = [[installedAppDict objectForKey:@"Path"] stringByAppendingPathComponent:[installedAppDict objectForKey:@"CFBundleExecutable"]];
 
                         BOOL appInstalled = YES;
                         if (![installedVerion isEqualToString:appVersion])
@@ -712,16 +764,11 @@ int main (int argc, char **argv, char **envp)
                                     {
                                         if ([fileMgr moveItemAtPath:pathOriginalInfoPlist toPath:pathInstalledInfoPlist error:nil])
                                         {
-                                            //[fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil];
                                             if ([fileMgr fileExistsAtPath:pathOriginalInfoPlist])
                                                 [fileMgr removeItemAtPath:pathOriginalInfoPlist error:nil];
                                         }
                                     }
                                 }
-
-                                //if ([fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil])
-                                //{
-                                //}
                             }
 
                             successfulInstalls++;
@@ -926,6 +973,7 @@ int main (int argc, char **argv, char **envp)
 
                             //Set overall permission
                             system([[NSString stringWithFormat:@"chown -R mobile:mobile %@", installedLocation] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            //setPermissionsForPath(installedLocation, executablePath);
                         }
                         else
                         {
