@@ -36,20 +36,20 @@
 
 @property (nonatomic, retain) id delegate;
 
--(BOOL) createZipFile2:(NSString*) zipFile;
--(BOOL) createZipFile2:(NSString*) zipFile Password:(NSString*) password;
--(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
--(BOOL) closeZipFile2;
+- (BOOL)openZipFile2:(NSString *)zipFile withZipModel:(int)model;
+- (BOOL)openZipFile2:(NSString *)zipFile Password:(NSString *)password withZipModel:(int)model;
+- (BOOL)addFileToZip:(NSString*) file newname:(NSString*) newname;
+- (BOOL)closeZipFile2;
 
--(int) unzipOpenFile:(NSString*) zipFile;
--(int) unzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
--(BOOL) unzipFileTo:(NSString*) path overWrite:(BOOL) overwrite;
--(BOOL) unzipCloseFile;
+- (int)unzipOpenFile:(NSString*) zipFile;
+- (int)unzipOpenFile:(NSString*) zipFile Password:(NSString*) password;
+- (BOOL)unzipFileTo:(NSString*) path overWrite:(BOOL) overwrite;
+- (BOOL)unzipCloseFile;
 
--(NSMutableArray *) getZipFileContents;
--(NSArray*) unzipFileToData;
--(NSData*) unzipFileToDataWithFilename:(NSString *)name;
--(BOOL) addDirectoryToZip:(NSString*)fromPath;
--(BOOL) addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip;
--(BOOL) unzipFileWithName:(NSString *)name toPath:(NSString *)path overwrite:(BOOL)overwrite;
+- (NSMutableArray *)getZipFileContents;
+- (NSArray *)unzipFileToData;
+- (NSData *)unzipFileToDataWithFilename:(NSString *)name;
+- (BOOL)addDirectoryToZip:(NSString*)fromPath;
+- (BOOL)addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip;
+- (BOOL)unzipFileWithName:(NSString *)name toPath:(NSString *)path overwrite:(BOOL)overwrite;
 @end

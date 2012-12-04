@@ -11,16 +11,12 @@
 #import "zlib.h"
 #import "zconf.h"
 
-
-
 @interface ZipArchive (Private)
 
 -(void) OutputErrorMessage:(NSString*) msg;
 -(BOOL) OverWrite:(NSString*) file;
 -(NSDate*) Date1980;
 @end
-
-
 
 @implementation ZipArchive
 @synthesize delegate = _delegate;
@@ -41,30 +37,35 @@
 	[super dealloc];
 }
 
--(BOOL) createZipFile2:(NSString*) zipFile
+-(BOOL) openZipFile2:(NSString *)zipFile withZipModel:(int)model
 {
-	_zipFile = zipOpen( (const char*)[zipFile UTF8String], 0 );
-	if( !_zipFile ) 
+    BOOL isFile = NO;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:zipFile isDirectory:&isFile])
+         _zipFile = zipOpen((const char*)[zipFile UTF8String], model);
+    else
+        _zipFile = zipOpen((const char*)[zipFile UTF8String], APPEND_STATUS_CREATE);
+    
+	if( !_zipFile )
 		return NO;
 	return YES;
 }
 
--(BOOL) createZipFile2:(NSString*) zipFile Password:(NSString*) password
+-(BOOL) openZipFile2:(NSString *)zipFile Password:(NSString *)password withZipModel:(int)model
 {
 	_password = password;
-	return [self createZipFile2:zipFile];
+	return [self openZipFile2:zipFile withZipModel:model];
 }
 
 -(BOOL) addFileToZip:(NSString*) file newname:(NSString*) newname;
 {
 	if (!_zipFile)
 		return NO;
-
+    
 	time_t current;
 	time( &current );
 	
 	zip_fileinfo zipInfo = {{0}};
-	
+
 	NSDictionary* attr = [[NSFileManager defaultManager] attributesOfItemAtPath:file error:nil];
 	if( attr )
 	{
@@ -97,11 +98,11 @@
 								  NULL,0,
 								  NULL,//comment
 								  Z_DEFLATED,
-								  Z_DEFAULT_COMPRESSION );
+								  Z_DEFAULT_COMPRESSION);
 	}
 	else
 	{
-		data = [ NSData dataWithContentsOfFile:file];
+		data = [NSData dataWithContentsOfFile:file];
 		uLong crcValue = crc32( 0L,NULL, 0L );
 		crcValue = crc32( crcValue, (const Bytef*)[data bytes], [data length] );
 		ret = zipOpenNewFileInZip3( _zipFile,
@@ -125,7 +126,7 @@
 	}
 	if( data==nil )
 	{
-		data = [ NSData dataWithContentsOfFile:file];
+		data = [NSData dataWithContentsOfFile:file];
 	}
 	unsigned int dataLen = [data length];
 	ret = zipWriteInFileInZip( _zipFile, (const void*)[data bytes], dataLen);
