@@ -304,15 +304,14 @@ int main (int argc, char **argv, char **envp)
                     if (isValidIPA)
                     {
                         //Unzip Info.plist
-                        NSData *infoData = [ipaArchive unzipFileToDataWithFilename:infoPath];
-                        [infoData writeToFile:pathInfoPlist atomically:YES];
+                        [ipaArchive unzipFileWithName:infoPath toPath:pathInfoPlist overwrite:YES];
                     }
                     [ipaArchive unzipCloseFile];
                 }
                 else
                     isValidIPA = NO;
                 [ipaArchive release];
-
+                
                 if (!isValidIPA)
                 {
                     if (quietInstall < 2)
@@ -821,7 +820,7 @@ int main (int argc, char **argv, char **envp)
                                 ipaArchive = [[ZipArchive alloc] init];
                                 if ([ipaArchive unzipOpenFile:[ipaFiles objectAtIndex:i]])
                                 {
-                                    if ([ipaArchive unzipDirectoryWithName:@"Container" toPath:workPath])
+                                    if ([ipaArchive unzipFileWithName:@"Container" toPath:[workPath stringByAppendingPathComponent:@"Container"] overwrite:YES])
                                     {
                                         NSString *containerPath = [workPath stringByAppendingPathComponent:@"Container"];
                                         

@@ -51,5 +51,5 @@
 -(NSData*) unzipFileToDataWithFilename:(NSString *)name;
 -(BOOL) addDirectoryToZip:(NSString*)fromPath;
 -(BOOL) addDirectoryToZip:(NSString*)fromPath toPathInZip:(NSString *)toPathInZip;
--(BOOL) unzipDirectoryWithName:(NSString *)dirName toPath:(NSString *)toPath;
+-(BOOL) unzipFileWithName:(NSString *)name toPath:(NSString *)path overwrite:(BOOL)overwrite;
 @end
