@@ -28,6 +28,9 @@ static BOOL removeMetadata = NO;
 static BOOL deleteFile = NO;
 static BOOL notRestore = NO;
 
+static BOOL isFile = NO;
+static BOOL isDirectory = YES;
+
 NSString * randomStringInLength(int len)
 {
     NSString *ret = @"";
@@ -42,7 +45,7 @@ NSString * randomStringInLength(int len)
 BOOL removeAllContentsUnderPath(NSString *path)
 {
     NSFileManager *fileMgr = [NSFileManager defaultManager];
-    if ([fileMgr fileExistsAtPath:path] && ![fileMgr fileExistsAtPath:path isDirectory:NO])
+    if ([fileMgr fileExistsAtPath:path isDirectory:&isFile])
     {
         NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:path error:nil];
         BOOL allRemoved = YES;
@@ -691,7 +694,7 @@ int main (int argc, char **argv, char **envp)
                                 if ([fileMgr setAttributes:attrMobile ofItemAtPath:pathOriginalInfoPlist error:nil])
                                 {
                                     NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedLocation, [[infoPath pathComponents] objectAtIndex:1]];
-                                    if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:NO])
+                                    if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:&isFile])
                                     {
                                         if ([fileMgr removeItemAtPath:pathInstalledInfoPlist error:nil])
                                         {
@@ -730,7 +733,7 @@ int main (int argc, char **argv, char **envp)
                                 BOOL allContentsCleaned = YES;
 
                                 //Clear Documents
-                                if ([fileMgr fileExistsAtPath:dirDocuments] && ![fileMgr fileExistsAtPath:dirDocuments isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirDocuments isDirectory:&isDirectory])
                                 {
                                     NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirDocuments error:nil];
                                     for (int unsigned j=0; j<[dirContents count]; j++)
@@ -740,7 +743,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 //Clear Library
-                                if ([fileMgr fileExistsAtPath:dirLibrary] && ![fileMgr fileExistsAtPath:dirLibrary isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirLibrary isDirectory:&isDirectory])
                                 {
                                     NSString *dirPreferences = [dirLibrary stringByAppendingPathComponent:@"Preferences"];
                                     NSString *dirCaches = [dirLibrary stringByAppendingPathComponent:@"Caches"];
@@ -762,7 +765,7 @@ int main (int argc, char **argv, char **envp)
                                                 }
                                             }
                                         }
-                                        if ([fileName isEqualToString:@"Caches"])
+                                        else if ([fileName isEqualToString:@"Caches"])
                                         {
                                             NSArray *cachesContents = [fileMgr contentsOfDirectoryAtPath:dirCaches error:nil];
                                             for (unsigned int k=0; k<[cachesContents count]; k++)
@@ -779,7 +782,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 //Clear tmp
-                                if ([fileMgr fileExistsAtPath:dirTmp] && ![fileMgr fileExistsAtPath:dirTmp isDirectory:NO])
+                                if ([fileMgr fileExistsAtPath:dirTmp isDirectory:&isDirectory])
                                 {
                                     NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirTmp error:nil];
                                     for (int unsigned j=0; j<[dirContents count]; j++)
@@ -789,7 +792,7 @@ int main (int argc, char **argv, char **envp)
                                     }
                                 }
                                 if (!allContentsCleaned && quietInstall < 2)
-                                    printf("Failed to clean \"%s\"'s all contents.\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Failed to clean \"%s\"'s old contents.\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
 
                             if (tempEnableClean)
@@ -831,7 +834,7 @@ int main (int argc, char **argv, char **envp)
                             }
 
                             //Remove metadata
-                            if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:NO])
+                            if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:&isFile])
                             {
                                 if (quietInstall == 0)
                                     printf("Remove iTunesMetadata.plist for \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
