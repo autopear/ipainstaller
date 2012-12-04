@@ -1,6 +1,3 @@
-//copy&move path will overwrite?
-
-
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import "ZipArchive/ZipArchive.h"
@@ -654,7 +651,8 @@ int main (int argc, char **argv, char **envp)
                 {
                     BOOL shouldContinue = NO;
                     ZipArchive *tmpArchive = [[ZipArchive alloc] init];
-                    if ([tmpArchive createZipFile2:installPath] && ![tmpArchive addFileToZip:pathInfoPlist newname:infoPath])
+                     // APPEND_STATUS_ADDINZIP = 2
+                    if ([tmpArchive openZipFile2:installPath withZipModel:APPEND_STATUS_ADDINZIP] && ![tmpArchive addFileToZip:pathInfoPlist newname:infoPath])
                     {
                         if (quietInstall < 2)
                             printf("Failed to use force installation mode, \"%s\" version \"%s\" will not be installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
