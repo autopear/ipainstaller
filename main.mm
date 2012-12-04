@@ -89,7 +89,7 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
             if (executablePath && [[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath])
                 [defaultAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
             else
-                 [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
+                [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
   
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         }
