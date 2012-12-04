@@ -80,8 +80,11 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
 
             [defaultAttributes setObject:@"mobile" forKey:NSFileOwnerAccountName];
             [defaultAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
-            [defaultAttributes setObject:[NSNumber numberWithInt:([[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath] ? 0755 : 0644)] forKey:NSFilePosixPermissions];
-
+            if (executablePath && [[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath])
+                [defaultAttributes setObject:[NSNumber numberWithInt:0755] forKey:NSFilePosixPermissions];
+            else
+                 [defaultAttributes setObject:[NSNumber numberWithInt:0644] forKey:NSFilePosixPermissions];
+  
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         }
         else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
@@ -98,6 +101,10 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
 int main (int argc, char **argv, char **envp)
 {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+
+    //Need to be run as mobile
+    if (getuid() != 501)
+        setuid(501);
 
     //Get system info
     SystemVersion = [UIDevice currentDevice].systemVersion;
@@ -365,7 +372,7 @@ int main (int argc, char **argv, char **envp)
                 NSString *appShortVersion = nil;
                 NSString *minSysVersion = nil;
                 NSMutableArray *supportedDeives = nil;
-                NSMutableArray *requiredCapabilities = nil;
+                id requiredCapabilities = nil;
 
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
 
@@ -573,12 +580,17 @@ int main (int argc, char **argv, char **envp)
                 if (requiredCapabilities)
                 {
                     BOOL isCapable = YES;
-                    for (unsigned int j=0; j<[requiredCapabilities count]; j++)
+                    //requiredCapabilities is NSArray, contains only strings
+                    if ([requiredCapabilities isKindOfClass:[NSArray class]])
                     {
-                        id capability = [requiredCapabilities objectAtIndex:j];
-                        if ([capability isKindOfClass:[NSString class]])
+                        NSMutableArray *newCapabilities = (NSMutableArray *)requiredCapabilities;
+
+                        for (unsigned int j=0; j<[(NSArray *)requiredCapabilities count]; j++)
                         {
-                            if (![[UIDevice currentDevice] supportsCapability:capability])
+                            NSString *capability = [(NSArray *)requiredCapabilities objectAtIndex:j];
+                            if ([[UIDevice currentDevice] supportsCapability:capability])
+                                [newCapabilities addObject:capability];
+                            else
                             {
                                 isCapable = NO;
                                 if (forceInstall)
@@ -587,8 +599,6 @@ int main (int argc, char **argv, char **envp)
                                         printf("Your device does not support %s capability.\n", [capability cStringUsingEncoding:NSUTF8StringEncoding]);
 
                                     shouldUpdateInfoPlist = YES;
-                                    NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:NO], capability, nil];
-                                    [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
                                 }
                                 else
                                 {
@@ -597,58 +607,76 @@ int main (int argc, char **argv, char **envp)
                                 }
                             }
                         }
-                        else if ([capability isKindOfClass:[NSDictionary class]])
-                        {
-                            NSString *capabilityKey = [[(NSDictionary *)capability allKeys] objectAtIndex:0];
-                            BOOL capabilityValue = [[(NSDictionary *)capability objectForKey:capabilityKey] boolValue];
-                            //Only boolean value
-                            if (capabilityValue != [[UIDevice currentDevice] supportsCapability:capabilityKey])
-                            {
-                                isCapable = NO;
-                                if (forceInstall)
-                                {
-                                    if (quietInstall == 0)
-                                    {
-                                        if (capabilityValue) //Device does not support
-                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
-                                        else //Device support but IPA requires to be false
-                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
-                                    }
 
-                                    shouldUpdateInfoPlist = YES;
-                                    NSDictionary *modifiedCapability = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithBool:!capabilityValue], capabilityKey, nil];
-                                    [requiredCapabilities replaceObjectAtIndex:j withObject:modifiedCapability];
-                                }
-                                else
-                                {
-                                    if (quietInstall < 2)
-                                    {
-                                        if (capabilityValue) //Device does not support
-                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
-                                        else //Device support but IPA requires to be false
-                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
-                                    }
-                                }
-                            }
-                        }
-                        else
+                        if (!isCapable)
                         {
-                            //is something else that dont know how to handle, so just skip
+                            if (forceInstall)
+                                [infoDict setObject:[newCapabilities sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIRequiredDeviceCapabilities"];
+                            else
+                            {
+                                if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
+                                    printf("Failed to clean caches.\n");
+
+                                if (i != [ipaFiles count] - 1) //Not the last output
+                                    printf("\n");
+
+                                continue;
+                            }
                         }
                     }
-                    if (!isCapable)
+                    else if ([requiredCapabilities isKindOfClass:[NSDictionary class]])
                     {
-                        if (forceInstall)
-                            [infoDict setObject:[requiredCapabilities sortedArrayUsingSelector:@selector(compare:)] forKey:@"UIRequiredDeviceCapabilities"];
-                        else
+                        //requiredCapabilities is NSDictionary, contains only key-object pairs
+                        NSMutableDictionary *newCapabilities = [NSMutableDictionary dictionaryWithCapacity:0];
+
+                        for (NSString *capabilityKey in [(NSDictionary *)requiredCapabilities allKeys])
                         {
-                            if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
-                                printf("Failed to clean caches.\n");
+                            BOOL capabilityValue = [[(NSDictionary *)requiredCapabilities objectForKey:capabilityKey] boolValue];
 
-                            if (i != [ipaFiles count] - 1) //Not the last output
-                                printf("\n");
+                            //Only boolean value
+                            if (capabilityValue == [[UIDevice currentDevice] supportsCapability:capabilityKey])
+                                [newCapabilities setObject:[NSNumber numberWithBool:!capabilityValue] forKey:capabilityKey];
+                            else
+                            {
+                                isCapable = NO;
+                                if (forceInstall)
+                                {
+                                    if (quietInstall == 0)
+                                    {
+                                        if (capabilityValue) //Device does not support
+                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                        else //Device support but IPA requires to be false
+                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    }
 
-                            continue;
+                                    shouldUpdateInfoPlist = YES;
+                                }
+                                else
+                                {
+                                    if (quietInstall < 2)
+                                    {
+                                        if (capabilityValue) //Device does not support
+                                            printf("Your device does not support %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                        else //Device support but IPA requires to be false
+                                            printf("Your device conflicts with %s capability.\n", [capabilityKey cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    }
+                                }
+                            }
+                        }
+                        if (!isCapable)
+                        {
+                            if (forceInstall)
+                                [infoDict setObject:newCapabilities forKey:@"UIRequiredDeviceCapabilities"];
+                            else
+                            {
+                                if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
+                                    printf("Failed to clean caches.\n");
+
+                                if (i != [ipaFiles count] - 1) //Not the last output
+                                    printf("\n");
+
+                                continue;
+                            }
                         }
                     }
                 }
@@ -717,6 +745,10 @@ int main (int argc, char **argv, char **envp)
 
                 if (quietInstall == 0)
                     printf("%snstalling %s (v%s)...\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
+
+                //Set permission before installation
+                setPermissionsForPath(workPath, nil);
+
                 int ret = install(installPath, [NSDictionary dictionaryWithObject:KEY_INSTALL_TYPE forKey:@"ApplicationType"], 0, installPath);
                 if (ret == 0)
                 {
