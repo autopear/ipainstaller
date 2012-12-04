@@ -26,7 +26,7 @@ static int quietInstall = 0; //0 is show all outputs, 1 is to show only errors, 
 static BOOL forceInstall = NO;
 static BOOL removeMetadata = NO;
 static BOOL deleteFile = NO;
-
+static BOOL notRestore = NO;
 
 NSString * randomStringInLength(int len)
 {
@@ -79,16 +79,16 @@ int main (int argc, char **argv, char **envp)
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install. If the application has already been installed, the saved caches, documents, settings etc. will be cleared.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version. Installed application may not work properly.\n    -h  Display this usage information.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist.", executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -n  Do not restore saved documents and other resources.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.", executableName];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPA via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear", executableName, EXECUTABLE_VERSION];
 
     if ([arguments count] == 1)
     {
         printf("%s\n", [helpString cStringUsingEncoding:NSUTF8StringEncoding]);
         return IPA_FAILED;
     }
-
+    
     NSMutableArray *ipaFiles = [[NSMutableArray alloc] initWithCapacity:0];
     NSMutableArray *filesNotFound = [[NSMutableArray alloc] initWithCapacity:0];
     BOOL noParameters = NO;
@@ -97,7 +97,7 @@ int main (int argc, char **argv, char **envp)
     for (unsigned int i=1; i<[arguments count]; i++)
     {
         NSString *arg = [arguments objectAtIndex:i];
-        if ([arg characterAtIndex:0] == '-')
+        if ([arg hasPrefix:@"-" ])
         {
             if ([arg length] < 2 || noParameters)
             {
@@ -118,6 +118,8 @@ int main (int argc, char **argv, char **envp)
                     forceInstall = YES;
                 else if ([p isEqualToString:@"h"])
                     showHelp = YES;
+                else if ([p isEqualToString:@"n"])
+                    notRestore = YES;
                 else if ([p isEqualToString:@"q"])
                 {
                     if (quietInstall != 0)
@@ -149,18 +151,16 @@ int main (int argc, char **argv, char **envp)
         {
             noParameters = YES;
             NSURL *url = [NSURL fileURLWithPath:arg isDirectory:NO];
-            NSError *err;
-            if (url && [url checkResourceIsReachableAndReturnError:&err])
+            if (url && [url checkResourceIsReachableAndReturnError:nil])
                 [ipaFiles addObject:[[url absoluteURL] path]]; //File exists
             else
                 [filesNotFound addObject:arg];
-            [err release];
         }
     }
-
+    
     if ((showAbout && showHelp )
-        || (showAbout && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
-        || (showHelp && (cleanInstall || deleteFile || forceInstall || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
+        || (showAbout && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
+        || (showHelp && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
     {
         printf("Invalid parameters.\n");
         return IPA_FAILED;
@@ -191,10 +191,14 @@ int main (int argc, char **argv, char **envp)
         return IPA_FAILED;
     }
 
+    if (cleanInstall)
+        notRestore = YES;
     if (quietInstall == 0 && cleanInstall)
         printf("Clean installation enabled.\n");
     if (quietInstall == 0 && forceInstall)
         printf("Force installation enabled.\n");
+    if (quietInstall == 0 && notRestore)
+        printf("Will not restore any saved documents and other resources.\n");
     if (quietInstall == 0 && removeMetadata)
         printf("iTunesMetadata.plist will be removed after installation.\n");
     if (quietInstall == 0 && deleteFile)
@@ -204,7 +208,10 @@ int main (int argc, char **argv, char **envp)
         else
             printf("IPA files will be deleted after installation.\n");
     }
-
+    
+    if (quietInstall == 0 && (cleanInstall || forceInstall || notRestore || removeMetadata || deleteFile))
+        printf("\n");
+    
     NSFileManager *fileMgr = [NSFileManager defaultManager];
 
     int successfulInstalls = 0;
@@ -236,7 +243,6 @@ int main (int argc, char **argv, char **envp)
             [attrMobile setObject:@"mobile" forKey:NSFileOwnerAccountName];
             [attrMobile setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
 
-
             if(![fileMgr createDirectoryAtPath:workPath withIntermediateDirectories:YES attributes:attrMobile error:NULL] && quietInstall < 2)
             {
                 printf("Failed to create workspace.\n");
@@ -256,7 +262,7 @@ int main (int argc, char **argv, char **envp)
 
                 NSString *ipa = [ipaFiles objectAtIndex:i];
                 if (quietInstall == 0)
-                    printf("Analyzing \"%s\"'.\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
+                    printf("Analyzing \"%s\"'...\n", [[ipa lastPathComponent] cStringUsingEncoding:NSUTF8StringEncoding]);
 
                 BOOL isValidIPA = YES;
                 BOOL hasContainer = NO;
@@ -702,10 +708,10 @@ int main (int argc, char **argv, char **envp)
 
                             successfulInstalls++;
                             if (quietInstall == 0)
-                                printf("%snstalled \"%s\" version \"%s\".%s", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                printf("%snstalled \"%s\" version \"%s\".\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
 
                             BOOL tempEnableClean = NO;
-                            if (!cleanInstall && hasContainer)
+                            if (!cleanInstall && hasContainer && !notRestore)
                             {
                                 tempEnableClean = YES;
                                 cleanInstall = YES;
@@ -790,7 +796,7 @@ int main (int argc, char **argv, char **envp)
                                 cleanInstall = NO;
 
                             //Recover documents
-                            if (!cleanInstall && hasContainer)
+                            if (!cleanInstall && hasContainer && !notRestore)
                             {
                                 //The tmp ipa file is already deleted.
                                 ipaArchive = [[ZipArchive alloc] init];
@@ -798,17 +804,25 @@ int main (int argc, char **argv, char **envp)
                                 {
                                     if ([ipaArchive unzipDirectoryWithName:@"Container" toPath:workPath])
                                     {
-                                        NSArray *containerContents = [fileMgr contentsOfDirectoryAtPath:[workPath stringByAppendingPathComponent:@"Container"] error:nil];
+                                        NSString *containerPath = [workPath stringByAppendingPathComponent:@"Container"];
+                                        //Delete .GlobalPreferences and com.apple.PeoplePicker.plist links
+                                        NSString *containerPreferencesPath = [[containerPath stringByAppendingPathComponent:@"Library"] stringByAppendingPathComponent:@"Prefernences"];
+                                        if ([fileMgr fileExistsAtPath:[containerPreferencesPath stringByAppendingPathComponent:@".GlobalPreferences.plist"]])
+                                            [fileMgr removeItemAtPath:[containerPreferencesPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] error:nil];
+                                        if ([fileMgr fileExistsAtPath:[containerPreferencesPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"]])
+                                            [fileMgr removeItemAtPath:[containerPreferencesPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] error:nil];
+                                        
+                                        NSArray *containerContents = [fileMgr contentsOfDirectoryAtPath:containerPath error:nil];
                                         if ([containerContents count] > 0)
                                         {
                                             BOOL allSuccessfull = YES;
                                             for (unsigned int j=0; j<[containerContents count]; j++)
                                             {
-                                                if (![fileMgr moveItemAtPath:[[workPath stringByAppendingPathComponent:@"Container"] stringByAppendingPathComponent:[containerContents objectAtIndex:j]] toPath:[installedLocation stringByAppendingPathComponent:[containerContents objectAtIndex:j]] error:nil])
+                                                if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:[containerContents objectAtIndex:j]] toPath:[installedLocation stringByAppendingPathComponent:[containerContents objectAtIndex:j]] error:nil])
                                                     allSuccessfull = NO;
                                             }
                                             if (!allSuccessfull && quietInstall < 2)
-                                                printf("Cannot restore all saved documents, caches, preferences etc.\n");
+                                                printf("Cannot restore all saved documents and other resources.\n");
                                         }
                                     }
                                     [ipaArchive unzipCloseFile];
@@ -817,10 +831,10 @@ int main (int argc, char **argv, char **envp)
                             }
 
                             //Remove metadata
-                            if ([fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:NO])
+                            if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:NO])
                             {
                                 if (quietInstall == 0)
-                                    printf("Remove iTunesMetadata.plist for \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Remove iTunesMetadata.plist for \"%s\"...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                                 if (![fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil] && quietInstall < 2)
                                     printf("Failed to remove \"%s\".\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
@@ -831,27 +845,27 @@ int main (int argc, char **argv, char **envp)
                         else
                         {
                             if (quietInstall < 2)
-                                printf("Failed to install \"%s\".%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                         }
                     }
                     else
                     {
                         if (quietInstall < 2)
-                            printf("Failed to install \"%s\".%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                            printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                     }
                 }
                 else
                 {
                     NSLog(@"failed with return value : %d", ret);
                     if (quietInstall < 2)
-                        printf("Failed to install \"%s\".%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("Failed to install \"%s\".\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
                 }
 
                 //Delete tmp ipa file
                 if (!removeAllContentsUnderPath(workPath))
                 {
                     if (quietInstall < 2)
-                        printf("Failed to delete \"%s\".\n", [installPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                        printf("Failed to delete \"%s\".%s", [installPath cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                     return IPA_FAILED;
                 }
@@ -860,11 +874,14 @@ int main (int argc, char **argv, char **envp)
                 if (deleteFile && [fileMgr fileExistsAtPath:ipa])
                 {
                     NSError *err;
-                    [fileMgr removeItemAtPath:installPath error:&err];
+                    [fileMgr removeItemAtPath:ipa error:&err];
                     if (err && quietInstall < 2)
-                        printf("Failed to delete \"%s\".\nReason: %s%s", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                        printf("Failed to delete \"%s\".\nReason: %s\n", [ipa cStringUsingEncoding:NSUTF8StringEncoding], [[err localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
                     [err release];
                 }
+                
+                if (quietInstall == 0 && i < [ipaFiles count]-1)
+                    printf("\n");
             }
 
             if (![fileMgr removeItemAtPath:workPath error:nil] && quietInstall < 2)
