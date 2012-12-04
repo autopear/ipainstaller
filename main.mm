@@ -106,6 +106,13 @@ int main (int argc, char **argv, char **envp)
     if (getuid() != 501)
         setuid(501);
 
+    //Recheck
+    if (getuid() != 501)
+    {
+        printf("Failed to get mobile privilege.\n");
+        return IPA_FAILED;
+    }
+
     //Get system info
     SystemVersion = [UIDevice currentDevice].systemVersion;
     NSString *deviceString = [UIDevice currentDevice].model;
