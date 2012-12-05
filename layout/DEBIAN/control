@@ -1,13 +1,17 @@
-Package: com.autopear.installipa
+Package: com.autopear.ipainstaller
 Version: 2.0
 Architecture: iphoneos-arm
 Maintainer: apt@app111 <apt@app111.com>
 Pre-Depends: firmware (>= 4.0)
-Section: <工具>
+Conflicts: com.autopear.installipa
+Replaces: com.autopear.installipa
+Provides: com.autopear.installipa
+Section: Utilities
 Priority: standard
-Description: 使用命令行安装 IPA。
+Description: Install IPA from the console.
 Tag: role::enduser, purpose::console
-Author: autopear <autopear@app111.com>
-Depiction: http://desc.app111.com/package/com.autopear.installipa
-Name: M:命令行安装 IPA
-Sponsor: app111.com <http://www.app111.com>
+Author: Merlin <lonelystars@gmail.com>
+Name: IPA Installer Console
+dev: lonelystars
+Maintainer: BigBoss <bigboss@thebigboss.org>
+Sponsor: thebigboss.org <http://thebigboss.org/>

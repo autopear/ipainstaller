@@ -395,37 +395,33 @@ int main (int argc, char **argv, char **envp)
                 NSMutableArray *supportedDeives = nil;
                 id requiredCapabilities = nil;
                                  
-                //Obtain localized display name
-                if ([fileMgr fileExistsAtPath:[workPath stringByAppendingPathComponent:@"localizations"] isDirectory:&isDirectory])
-                {
-                    NSBundle *localizedBundle = [[NSBundle alloc] initWithPath:[workPath stringByAppendingPathComponent:@"localizations"]];
-
-                    if ([localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:@"" table:@"InfoPlist"])
-                        appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:nil table:@"InfoPlist"];
-                    else
-                        appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleName" value:nil table:@"InfoPlist"];
-                    [localizedBundle release];
-                    
-                    //Delete the directory
-                    [fileMgr removeItemAtPath:[workPath stringByAppendingPathComponent:@"localizations"] error:nil];
-                }
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
                 
                 if (infoDict)
                 {
                     appIdentifier = [infoDict objectForKey:@"CFBundleIdentifier"];
-                    if (!appDisplayName)
-                    {                        
-                        if ([infoDict objectForKey:@"CFBundleDisplayName"])
-                            appDisplayName = [infoDict objectForKey:@"CFBundleDisplayName"];
-                        else
-                            appDisplayName = [infoDict objectForKey:@"CFBundleName"];
-                    }
                     appVersion = [infoDict objectForKey:@"CFBundleVersion"];
                     appShortVersion = [infoDict objectForKey:@"CFBundleShortVersionString"];
                     minSysVersion = [infoDict objectForKey:@"MinimumOSVersion"];
                     supportedDeives = [infoDict objectForKey:@"UIDeviceFamily"];
                     requiredCapabilities = [infoDict objectForKey:@"UIRequiredDeviceCapabilities"];
+                    
+                    appDisplayName = [infoDict objectForKey:@"CFBundleDisplayName"] ? [infoDict objectForKey:@"CFBundleDisplayName"] : [infoDict objectForKey:@"CFBundleName"];
+
+                    //Obtain localized display name
+                    if ([fileMgr fileExistsAtPath:[workPath stringByAppendingPathComponent:@"localizations"] isDirectory:&isDirectory])
+                    {
+                        NSBundle *localizedBundle = [[NSBundle alloc] initWithPath:[workPath stringByAppendingPathComponent:@"localizations"]];
+                        
+                        if ([localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:nil table:@"InfoPlist"])
+                            appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:appDisplayName table:@"InfoPlist"];
+                        else
+                            appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleName" value:appDisplayName table:@"InfoPlist"];
+                        [localizedBundle release];
+                        
+                        //Delete the directory
+                        [fileMgr removeItemAtPath:[workPath stringByAppendingPathComponent:@"localizations"] error:nil];
+                    }
                 }
                 else
                 {
