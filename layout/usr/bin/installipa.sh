@@ -50,8 +50,7 @@ if [[ ! -f /usr/bin/uicache ]]; then
 	exit 1
 fi
 if [[ ! -f /usr/bin/fixblankicon ]]; then
-	echo "Cannot find /usr/bin/fixblankicon, please reinstall this package via trusted source."
-	exit 1
+	echo "Cannot find /usr/bin/fixblankicon, will respring after installation."
 fi
 
 forceInstall="NO"
@@ -324,7 +323,12 @@ if [ "$successToggle" == "YES" ]; then
 			su mobile -c uicache 1>/dev/null 2>&1
 		fi
 		cd "$currentDir"
-		/usr/bin/fixblankicon 1>/dev/null 2>&1
+		if [ -f /usr/bin/fixblankicon ]; then
+			/usr/bin/fixblankicon 1>/dev/null 2>&1
+		else
+			echo "Reloading SpringBoard..."
+			killall SpringBoard
+		fi
 	fi
 	if [ $quietMode == "NO" ]; then
 		echo -e "Done."
