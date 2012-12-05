@@ -326,7 +326,7 @@ int main (int argc, char **argv, char **envp)
                     NSMutableArray *array = [ipaArchive getZipFileContents];
                     NSMutableArray *infoStrings = [NSMutableArray arrayWithCapacity:0];
                     NSString *appPathName = nil;
-                    
+
                     int cnt = 0;
                     for (unsigned int j=0; j<[array count];j++)
                     {
@@ -343,7 +343,7 @@ int main (int argc, char **argv, char **envp)
                                 infoPath = name;
                                 cnt++;
                             }
-                            
+
                             //Extract InfoPlist.strings if available
                             if ([components count] == 4 && [[components objectAtIndex:0] isEqualToString:@"Payload"] && [[components objectAtIndex:1] hasSuffix:@".app"] && [[components objectAtIndex:2] hasSuffix:@".lproj"] && [[components objectAtIndex:3] isEqualToString:@"InfoPlist.strings"])
                             {
@@ -358,7 +358,7 @@ int main (int argc, char **argv, char **envp)
                     {
                         //Unzip Info.plist
                         [ipaArchive unzipFileWithName:infoPath toPath:pathInfoPlist overwrite:YES];
-                        
+
                         //Unzip all InfoPlist.strings
                         for (unsigned int j=0; j<[infoStrings count]; j++)
                         {
@@ -394,9 +394,9 @@ int main (int argc, char **argv, char **envp)
                 NSString *minSysVersion = nil;
                 NSMutableArray *supportedDeives = nil;
                 id requiredCapabilities = nil;
-                                 
+ 
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
-                
+
                 if (infoDict)
                 {
                     appIdentifier = [infoDict objectForKey:@"CFBundleIdentifier"];
@@ -405,20 +405,20 @@ int main (int argc, char **argv, char **envp)
                     minSysVersion = [infoDict objectForKey:@"MinimumOSVersion"];
                     supportedDeives = [infoDict objectForKey:@"UIDeviceFamily"];
                     requiredCapabilities = [infoDict objectForKey:@"UIRequiredDeviceCapabilities"];
-                    
+
                     appDisplayName = [infoDict objectForKey:@"CFBundleDisplayName"] ? [infoDict objectForKey:@"CFBundleDisplayName"] : [infoDict objectForKey:@"CFBundleName"];
 
                     //Obtain localized display name
                     if ([fileMgr fileExistsAtPath:[workPath stringByAppendingPathComponent:@"localizations"] isDirectory:&isDirectory])
                     {
                         NSBundle *localizedBundle = [[NSBundle alloc] initWithPath:[workPath stringByAppendingPathComponent:@"localizations"]];
-                        
+
                         if ([localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:nil table:@"InfoPlist"])
                             appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:appDisplayName table:@"InfoPlist"];
                         else
                             appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleName" value:appDisplayName table:@"InfoPlist"];
                         [localizedBundle release];
-                        
+
                         //Delete the directory
                         [fileMgr removeItemAtPath:[workPath stringByAppendingPathComponent:@"localizations"] error:nil];
                     }
