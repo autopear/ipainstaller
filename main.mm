@@ -324,6 +324,9 @@ int main (int argc, char **argv, char **envp)
                 if ([ipaArchive unzipOpenFile:[ipaFiles objectAtIndex:i]])
                 {
                     NSMutableArray *array = [ipaArchive getZipFileContents];
+                    NSMutableArray *infoStrings = [NSMutableArray arrayWithCapacity:0];
+                    NSString *appPathName = nil;
+                    
                     int cnt = 0;
                     for (unsigned int j=0; j<[array count];j++)
                     {
@@ -333,10 +336,18 @@ int main (int argc, char **argv, char **envp)
                             hasContainer = YES;
                         else
                         {
-                            if ([components count] == 3 && [[components objectAtIndex:0] isEqualToString:@"Payload"] && [[components objectAtIndex:2] isEqualToString:@"Info.plist"])
+                            //Extract Info.plist
+                            if ([components count] == 3 && [[components objectAtIndex:0] isEqualToString:@"Payload"] && [[components objectAtIndex:1] hasSuffix:@".app"] && [[components objectAtIndex:2] isEqualToString:@"Info.plist"])
                             {
+                                appPathName = [@"Payload" stringByAppendingPathComponent:[components objectAtIndex:1]];
                                 infoPath = name;
                                 cnt++;
+                            }
+                            
+                            //Extract InfoPlist.strings if available
+                            if ([components count] == 4 && [[components objectAtIndex:0] isEqualToString:@"Payload"] && [[components objectAtIndex:1] hasSuffix:@".app"] && [[components objectAtIndex:2] hasSuffix:@".lproj"] && [[components objectAtIndex:3] isEqualToString:@"InfoPlist.strings"])
+                            {
+                                [infoStrings addObject:[components objectAtIndex:2]];
                             }
                         }
                     }
@@ -347,6 +358,17 @@ int main (int argc, char **argv, char **envp)
                     {
                         //Unzip Info.plist
                         [ipaArchive unzipFileWithName:infoPath toPath:pathInfoPlist overwrite:YES];
+                        
+                        //Unzip all InfoPlist.strings
+                        for (unsigned int j=0; j<[infoStrings count]; j++)
+                        {
+                            NSString *lprojPath = [[workPath stringByAppendingPathComponent:@"localizations"] stringByAppendingPathComponent:[infoStrings objectAtIndex:j]];
+                            if ([fileMgr createDirectoryAtPath:lprojPath withIntermediateDirectories:YES attributes:nil error:NULL])
+                            {
+                                //Unzip to this directory
+                                [ipaArchive unzipFileWithName:[[appPathName stringByAppendingPathComponent:[infoStrings objectAtIndex:j]] stringByAppendingPathComponent:@"InfoPlist.strings"] toPath:[lprojPath stringByAppendingPathComponent:@"InfoPlist.strings"] overwrite:YES];
+                            }
+                        }
                     }
                     [ipaArchive unzipCloseFile];
                 }
@@ -372,13 +394,33 @@ int main (int argc, char **argv, char **envp)
                 NSString *minSysVersion = nil;
                 NSMutableArray *supportedDeives = nil;
                 id requiredCapabilities = nil;
+                                 
+                //Obtain localized display name
+                if ([fileMgr fileExistsAtPath:[workPath stringByAppendingPathComponent:@"localizations"] isDirectory:&isDirectory])
+                {
+                    NSBundle *localizedBundle = [[NSBundle alloc] initWithPath:[workPath stringByAppendingPathComponent:@"localizations"]];
 
+                    if ([localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:@"" table:@"InfoPlist"])
+                        appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleDisplayName" value:nil table:@"InfoPlist"];
+                    else
+                        appDisplayName = [localizedBundle localizedStringForKey:@"CFBundleName" value:nil table:@"InfoPlist"];
+                    [localizedBundle release];
+                    
+                    //Delete the directory
+                    [fileMgr removeItemAtPath:[workPath stringByAppendingPathComponent:@"localizations"] error:nil];
+                }
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
-
+                
                 if (infoDict)
                 {
                     appIdentifier = [infoDict objectForKey:@"CFBundleIdentifier"];
-                    appDisplayName = [infoDict objectForKey:@"CFBundleDisplayName"];
+                    if (!appDisplayName)
+                    {                        
+                        if ([infoDict objectForKey:@"CFBundleDisplayName"])
+                            appDisplayName = [infoDict objectForKey:@"CFBundleDisplayName"];
+                        else
+                            appDisplayName = [infoDict objectForKey:@"CFBundleName"];
+                    }
                     appVersion = [infoDict objectForKey:@"CFBundleVersion"];
                     appShortVersion = [infoDict objectForKey:@"CFBundleShortVersionString"];
                     minSysVersion = [infoDict objectForKey:@"MinimumOSVersion"];
@@ -458,7 +500,7 @@ int main (int argc, char **argv, char **envp)
                             else
                             {
                                 if (quietInstall < 2)
-                                printf("%s (v%s) is already installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                    printf("%s (v%s) is already installed. You may use -f parameter to force downgrade.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedShortVersion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
 
                                 if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                                     printf("Failed to clean caches.\n");
@@ -480,7 +522,7 @@ int main (int argc, char **argv, char **envp)
                             else
                             {
                                 if (quietInstall < 2)
-                                    printf("%s (v%s) is already installed.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
+                                    printf("%s (v%s) is already installed. You may use -f parameter to force downgrade.%s", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [installedVerion cStringUsingEncoding:NSUTF8StringEncoding], (i == [ipaFiles count] - 1) ? "\n" : "\n\n");
                                 if (!removeAllContentsUnderPath(workPath) && quietInstall < 2)
                                     printf("Failed to clean caches.\n");
 
@@ -792,7 +834,7 @@ int main (int argc, char **argv, char **envp)
 
                             successfulInstalls++;
                             if (quietInstall == 0)
-                                printf("%snstalled %s (v%s).\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
+                                printf("%snstalled %s (v%s) successfully%s.\n", shouldUpdateInfoPlist ? "Force i" : "I", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding], shouldUpdateInfoPlist ? ", but it may not work properly" : "");
 
                             BOOL tempEnableClean = NO;
                             if (!cleanInstall && hasContainer && !notRestore)
