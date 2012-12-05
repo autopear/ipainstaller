@@ -53,10 +53,7 @@ if [[ ! -f /usr/bin/fixblankicon ]]; then
 	echo "Cannot find /usr/bin/fixblankicon, please reinstall this package via trusted source."
 	exit 1
 fi
-if [[ ! -f /usr/bin/install-ipa ]]; then
-	echo "This package is damaged, please reinstall from Cydia."
-	exit 1
-fi
+
 forceInstall="NO"
 metaData="YES"
 keepFile="YES"
@@ -233,6 +230,7 @@ while [ $# -ge 1 ]; do
 					else
 						#Update existing path
 						install_path=$(plutil -User -"$app_id" -Container /var/mobile/Library/Caches/com.apple.mobile.installation.plist 2>&1)
+						install_path=$(echo $install_path | sed 's/private\/var\/mobile\/Applications//g' | sed 's/\///g')
 						rm -fr /private/var/mobile/Applications/$install_path/*.app
 					fi
 				
@@ -301,14 +299,14 @@ while [ $# -ge 1 ]; do
 					successToggle="YES"
 				fi
 			else
-				echo -e "    Invalid ipa!"
+				echo -e "\tInvalid ipa!"
 				if [ $quietMode == "NO" ]; then
-					echo -e "    Cleaning..."
+					echo -e "\tCleaning..."
 				fi
 			fi
+		else
+			echo "\"$1\" is not an IPA file or does not exist."
 		fi
-	else
-		echo "\"$1\" is not an IPA file or does not exist."
 	fi
 	shift
 done

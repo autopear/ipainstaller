@@ -22,6 +22,7 @@ before-package::
 	touch -r _/usr/bin/installipa _/usr
 	touch -r _/usr/bin/installipa _/usr/bin
 	touch -r _/usr/bin/installipa _/usr/bin/installipa.sh
+	chmod 0755 _/usr/bin/installipa.sh _/usr/bin/ipainstaller
 
 after-package::
 	rm -fr .theos/packages/*
