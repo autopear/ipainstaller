@@ -1,7 +1,6 @@
 Package: com.autopear.ipainstaller
 Version: 2.0
 Architecture: iphoneos-arm
-Maintainer: apt@app111 <apt@app111.com>
 Pre-Depends: firmware (>= 4.0)
 Conflicts: com.autopear.installipa
 Replaces: com.autopear.installipa
