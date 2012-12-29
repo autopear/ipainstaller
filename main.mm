@@ -128,13 +128,23 @@ int main (int argc, char **argv, char **envp)
 
     NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -n  Do not restore saved documents and other resources.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.", executableName];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear\nCopyright (C) 2012 autopear. All rights reserved.", executableName, EXECUTABLE_VERSION];
+    NSDate *today = [NSDate date];
+
+    NSDateFormatter *currentFormatter = [[NSDateFormatter alloc] init];
+
+    [currentFormatter setDateFormat:@"yyyy"];
+
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear\nCopyright (C) 2012%@ autopear. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+
+    [currentFormatter release];
 
     if ([arguments count] == 1)
     {
         printf("%s\n", [helpString cStringUsingEncoding:NSUTF8StringEncoding]);
         return IPA_FAILED;
     }
+
+    NSFileManager *fileMgr = [NSFileManager defaultManager];
 
     NSMutableArray *ipaFiles = [[NSMutableArray alloc] initWithCapacity:0];
     NSMutableArray *filesNotFound = [[NSMutableArray alloc] initWithCapacity:0];
@@ -198,15 +208,12 @@ int main (int argc, char **argv, char **envp)
         {
             noParameters = YES;
             NSURL *url = [NSURL fileURLWithPath:arg isDirectory:NO];
-            if (url && [url checkResourceIsReachableAndReturnError:nil])
+            if (url && [fileMgr fileExistsAtPath:[[url absoluteURL] path] isDirectory:&isFile])
                 [ipaFiles addObject:[[url absoluteURL] path]]; //File exists
             else
                 [filesNotFound addObject:arg];
         }
     }
-
-    //Convert mutableArray to NSArray
-    ///NSArray *ipaFiles = [NSArray arrayWithArray:mutableIpaFiles];
 
     if ((showAbout && showHelp )
         || (showAbout && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
@@ -261,8 +268,6 @@ int main (int argc, char **argv, char **envp)
 
     if (quietInstall == 0 && (cleanInstall || forceInstall || notRestore || removeMetadata || deleteFile))
         printf("\n");
-
-    NSFileManager *fileMgr = [NSFileManager defaultManager];
 
     int successfulInstalls = 0;
     void *lib = dlopen(KEY_SDKPATH, RTLD_LAZY);
@@ -328,7 +333,7 @@ int main (int argc, char **argv, char **envp)
                     NSString *appPathName = nil;
 
                     int cnt = 0;
-                    for (unsigned int j=0; j<[array count];j++)
+                    for (unsigned int j=0; j<[array count]; j++)
                     {
                         NSString *name = [array objectAtIndex:j];
                         NSArray *components = [name pathComponents];
