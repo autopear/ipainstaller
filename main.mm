@@ -215,9 +215,8 @@ int main (int argc, char **argv, char **envp)
         }
     }
 
-    if ((showAbout && showHelp )
-        || (showAbout && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0)))
-        || (showHelp && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
+    if ((showAbout && showHelp)
+        || ((showAbout || showHelp) && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
     {
         printf("Invalid parameters.\n");
         return IPA_FAILED;
