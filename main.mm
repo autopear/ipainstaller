@@ -538,19 +538,29 @@ int main (int argc, char **argv, char **envp)
                 BOOL supportiPhone = NO;
                 BOOL supportiPad = NO;
                 BOOL supportAppleTV = NO;
-                for (unsigned int j=0; j<[supportedDeives count]; j++)
+                if (!supportedDeives || [supportedDeives count] == 0)
                 {
-                    int d =[[supportedDeives objectAtIndex:j] intValue];
-                    if (d == 1)
-                    {
-                        supportiPhone = YES;
-                        supportiPad = YES;
-                    }
-                    if (d == 2)
-                        supportiPad = YES;
-                    if (d == 3)
-                        supportAppleTV = YES;
+                    supportiPhone = YES;
+                    supportiPad = YES;
+                    supportAppleTV = YES;
                 }
+                else
+                {
+                    for (unsigned int j=0; j<[supportedDeives count]; j++)
+                    {
+                        int d =[[supportedDeives objectAtIndex:j] intValue];
+                        if (d == 1)
+                        {
+                            supportiPhone = YES;
+                            supportiPad = YES;
+                        }
+                        if (d == 2)
+                            supportiPad = YES;
+                        if (d == 3)
+                            supportAppleTV = YES;
+                    }
+                }
+
                 NSString *supportedDeivesString = nil;
                 if (!supportiPhone && supportiPad && !supportAppleTV)
                     supportedDeivesString = @"iPad";
