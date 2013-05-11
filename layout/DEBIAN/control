@@ -1,13 +1,10 @@
-Package: com.autopear.ipainstaller
-Version: 2.0
+Package: com.autopear.installipa
+Version: 2.1
 Architecture: iphoneos-arm
 Pre-Depends: firmware (>= 4.0)
-Conflicts: com.autopear.installipa
-Replaces: com.autopear.installipa
-Provides: com.autopear.installipa
 Section: Utilities
 Priority: standard
-Description: Install IPA from the console.
+Description: Install IPA from the command line.
 Tag: role::enduser, purpose::console
 Author: Merlin <lonelystars@gmail.com>
 Name: IPA Installer Console

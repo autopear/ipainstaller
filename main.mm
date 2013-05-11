@@ -4,7 +4,7 @@
 
 #include <dlfcn.h>
 
-#define EXECUTABLE_VERSION @"2.0"
+#define EXECUTABLE_VERSION @"2.1"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -12,9 +12,13 @@
 #define IPA_FAILED -1
 
 typedef int (*MobileInstallationInstall)(NSString *path, NSDictionary *dict, void *na, NSString *backpath);
+typedef int (*MobileInstallationUninstall)(NSString *bundleID, NSDictionary *dict, void *na);
 
 static NSString *SystemVersion = nil;
 static int DeviceModel = 0;
+
+static BOOL isUninstall = false;
+static BOOL isListing = false;
 
 static BOOL cleanInstall = NO;
 static int quietInstall = 0; //0 is show all outputs, 1 is to show only errors, 2 is to show nothing
@@ -120,13 +124,13 @@ int main (int argc, char **argv, char **envp)
 
     //Process parameters
     NSArray *arguments = [[NSProcessInfo processInfo] arguments];
-
+    
     if ([arguments count] < 1)
         return IPA_FAILED;
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -n  Do not restore saved documents and other resources.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.", executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n\nOptions:\n    -a  Show tool about information.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -l  List identifiers of all installed App Store aplications.\n    -n  Do not restore saved documents and other resources.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName];
 
     NSDate *today = [NSDate date];
 
@@ -134,14 +138,14 @@ int main (int argc, char **argv, char **envp)
 
     [currentFormatter setDateFormat:@"yyyy"];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line.\nVersion: %@\nAuhor: autopear\nCopyright (C) 2012%@ autopear. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or uninstall/browse installed applications.\nVersion: %@\nAuhor: Merlin Mao\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
 
     [currentFormatter release];
 
     if ([arguments count] == 1)
     {
         printf("%s\n", [helpString cStringUsingEncoding:NSUTF8StringEncoding]);
-        return IPA_FAILED;
+        return 0;
     }
 
     NSFileManager *fileMgr = [NSFileManager defaultManager];
@@ -165,7 +169,11 @@ int main (int argc, char **argv, char **envp)
             for (unsigned int j=1; j<[arg length]; j++)
             {
                 NSString *p = [arg substringWithRange:NSMakeRange(j, 1)];
-                if ([p isEqualToString:@"a"])
+                if ([p isEqualToString:@"u"])
+                    isUninstall = YES;
+                else if ([p isEqualToString:@"l"])
+                    isListing = YES;
+                else if ([p isEqualToString:@"a"])
                     showAbout = YES;
                 else if ([p isEqualToString:@"c"])
                     cleanInstall = YES;
@@ -215,6 +223,106 @@ int main (int argc, char **argv, char **envp)
         }
     }
 
+    if (isListing)
+    {
+        if ([arguments count] != 2)
+        {
+            printf("Invalid parameters.\n");
+            return IPA_FAILED;
+        }
+        else
+        {
+            NSDictionary *mobileInstallationPlist = [[NSDictionary alloc] initWithContentsOfFile:@"/private/var/mobile/Library/Caches/com.apple.mobile.installation.plist"];
+            NSDictionary *installedAppDict = (NSDictionary*)[mobileInstallationPlist objectForKey:@"User"];
+            
+            NSArray * identifiers = [[installedAppDict allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+
+            for (unsigned int i=0; i<[identifiers count]; i++)
+                printf("%s\n", [(NSString *)[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+            [mobileInstallationPlist release];
+            [pool release];
+            return 0;
+        }
+    }
+    
+    if (isUninstall)
+    {
+        if ([arguments count] < 3)
+        {
+            printf("Invalid parameters.\n");
+            return IPA_FAILED;
+        }
+        else
+        {
+            NSMutableArray *identifiers = [NSMutableArray arrayWithCapacity:0];
+            for (unsigned int i=1; i<[arguments count]; i++)
+            {
+                NSString *arg = [arguments objectAtIndex:i];
+                if ([arg hasPrefix:@"-" ])
+                {
+                    if (!([arg isEqualToString:@"-u"]
+                        || [arg isEqualToString:@"-q"]
+                        || [arg isEqualToString:@"-Q"]
+                        || [arg isEqualToString:@"-uq"]
+                        || [arg isEqualToString:@"-qu"]
+                        || [arg isEqualToString:@"-uQ"]
+                        || [arg isEqualToString:@"-Qu"]))
+                    {
+                        printf("Invalid parameters.\n");
+                        return IPA_FAILED;
+                    }
+                }
+                else
+                    [identifiers addObject:arg];
+            }
+            NSLog(@"%@", identifiers);
+            if ([identifiers count] < 1)
+            {
+                printf("You must specify at least one application identifier.\n");
+                return IPA_FAILED;
+            }
+            else
+            {
+                void *lib = dlopen(KEY_SDKPATH, RTLD_LAZY);
+                if (lib)
+                {
+                    MobileInstallationUninstall uninstall = (MobileInstallationUninstall)dlsym(lib, "MobileInstallationUninstall");
+
+                    NSDictionary *mobileInstallationPlist = [[NSDictionary alloc] initWithContentsOfFile:@"/private/var/mobile/Library/Caches/com.apple.mobile.installation.plist"];
+                    NSDictionary *installedAppDict = (NSDictionary*)[mobileInstallationPlist objectForKey:@"User"];
+                    
+                    for (unsigned int i=0; i<[identifiers count]; i++)
+                    {
+                        if ([[installedAppDict allKeys] containsObject:[identifiers objectAtIndex:i]])
+                        {
+                            printf("Removing application \"%s\".\n", [[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            int res = uninstall([identifiers objectAtIndex:i], nil, nil);
+                            if (res == 0)
+                            {
+                                if (quietInstall == 0)
+                                    printf("Successfully removed application \"%s\".\n", [[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            }
+                            else
+                            {
+                                if (quietInstall < 2)
+                                    printf("Failed to remove application \"%s\".\n", [[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+                            }
+                        }
+                        else
+                        {
+                            if (quietInstall < 2)
+                                printf("Application \"%s\" is not installed.\n", [[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+                        }
+                    }
+                }
+                dlclose(lib);
+                
+                [pool release];
+                return 0;
+            }
+        }
+    }
+    
     if ((showAbout && showHelp)
         || ((showAbout || showHelp) && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
     {
@@ -225,13 +333,13 @@ int main (int argc, char **argv, char **envp)
     if (showHelp)
     {
         printf("%s\n", [helpString cStringUsingEncoding:NSUTF8StringEncoding]);
-        return IPA_FAILED;
+        return 0;
     }
 
     if (showAbout)
     {
         printf("%s\n", [aboutString cStringUsingEncoding:NSUTF8StringEncoding]);
-        return IPA_FAILED;
+        return 0;
     }
 
     for (unsigned int i=0; i<[filesNotFound count]; i++)
@@ -273,6 +381,7 @@ int main (int argc, char **argv, char **envp)
     if (lib)
     {
         MobileInstallationInstall install = (MobileInstallationInstall)dlsym(lib, "MobileInstallationInstall");
+        
         if (install)
         {
             NSArray *filesInTemp = [fileMgr contentsOfDirectoryAtPath:NSTemporaryDirectory() error:nil];
