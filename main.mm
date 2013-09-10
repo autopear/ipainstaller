@@ -4,7 +4,7 @@
 
 #include <dlfcn.h>
 
-#define EXECUTABLE_VERSION @"2.1"
+#define EXECUTABLE_VERSION @"2.1.1"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -94,7 +94,7 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
                 [defaultAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
             else
                 [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
-  
+
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
         }
         else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
@@ -105,6 +105,46 @@ void setPermissionsForPath(NSString *path, NSString *executablePath)
         {
             //Ignore symblic links
         }
+    }
+}
+
+int versionCompare(NSString *ver1, NSString *ver2)
+{
+    //-1: ver1<ver2; 0: ver1=ver2; 1: ver1>ver2
+    if (!ver1 && !ver2)
+        return 0;
+    else if (!ver1 && ver2)
+        return -1;
+    else if (ver1 && !ver2)
+        return 1;
+    else
+    {
+        NSArray *components1 = [ver1 componentsSeparatedByString:@"."];
+        NSArray *components2 = [ver2 componentsSeparatedByString:@"."];
+
+        int count = [components1 count] > [components2 count] ? [components2 count] : [components1 count];
+        for (int i=0; i<count; i++)
+        {
+            int num1 = [[components1 objectAtIndex:i] intValue];
+            int num2 = [[components2 objectAtIndex:i] intValue];
+
+            if (num1 < num2)
+                return -1;
+            else if (num1 > num2)
+                return 1;
+            else
+            {
+                if ([[components1 objectAtIndex:i] isEqualToString:[components2 objectAtIndex:i]])
+                    continue;
+                else
+                    return [[components1 objectAtIndex:i] compare:[components2 objectAtIndex:i]] == NSOrderedDescending ? 1 : -1;
+            }
+        }
+
+        if ([components1 count] != [components2 count])
+            return [components1 count] > [components2 count] ? 1 : -1;
+        else
+            return 0;
     }
 }
 
@@ -124,7 +164,7 @@ int main (int argc, char **argv, char **envp)
 
     //Process parameters
     NSArray *arguments = [[NSProcessInfo processInfo] arguments];
-    
+
     if ([arguments count] < 1)
         return IPA_FAILED;
 
@@ -138,7 +178,7 @@ int main (int argc, char **argv, char **envp)
 
     [currentFormatter setDateFormat:@"yyyy"];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or uninstall/browse installed applications.\nVersion: %@\nAuhor: Merlin Mao\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or uninstall/browse installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nUIDevice-Extension from Erica Sadun\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
 
     [currentFormatter release];
 
@@ -234,7 +274,7 @@ int main (int argc, char **argv, char **envp)
         {
             NSDictionary *mobileInstallationPlist = [[NSDictionary alloc] initWithContentsOfFile:@"/private/var/mobile/Library/Caches/com.apple.mobile.installation.plist"];
             NSDictionary *installedAppDict = (NSDictionary*)[mobileInstallationPlist objectForKey:@"User"];
-            
+
             NSArray * identifiers = [[installedAppDict allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
             for (unsigned int i=0; i<[identifiers count]; i++)
@@ -244,7 +284,7 @@ int main (int argc, char **argv, char **envp)
             return 0;
         }
     }
-    
+
     if (isUninstall)
     {
         if ([arguments count] < 3)
@@ -261,12 +301,12 @@ int main (int argc, char **argv, char **envp)
                 if ([arg hasPrefix:@"-" ])
                 {
                     if (!([arg isEqualToString:@"-u"]
-                        || [arg isEqualToString:@"-q"]
-                        || [arg isEqualToString:@"-Q"]
-                        || [arg isEqualToString:@"-uq"]
-                        || [arg isEqualToString:@"-qu"]
-                        || [arg isEqualToString:@"-uQ"]
-                        || [arg isEqualToString:@"-Qu"]))
+                          || [arg isEqualToString:@"-q"]
+                          || [arg isEqualToString:@"-Q"]
+                          || [arg isEqualToString:@"-uq"]
+                          || [arg isEqualToString:@"-qu"]
+                          || [arg isEqualToString:@"-uQ"]
+                          || [arg isEqualToString:@"-Qu"]))
                     {
                         printf("Invalid parameters.\n");
                         return IPA_FAILED;
@@ -290,7 +330,7 @@ int main (int argc, char **argv, char **envp)
 
                     NSDictionary *mobileInstallationPlist = [[NSDictionary alloc] initWithContentsOfFile:@"/private/var/mobile/Library/Caches/com.apple.mobile.installation.plist"];
                     NSDictionary *installedAppDict = (NSDictionary*)[mobileInstallationPlist objectForKey:@"User"];
-                    
+
                     for (unsigned int i=0; i<[identifiers count]; i++)
                     {
                         if ([[installedAppDict allKeys] containsObject:[identifiers objectAtIndex:i]])
@@ -316,13 +356,13 @@ int main (int argc, char **argv, char **envp)
                     }
                 }
                 dlclose(lib);
-                
+
                 [pool release];
                 return 0;
             }
         }
     }
-    
+
     if ((showAbout && showHelp)
         || ((showAbout || showHelp) && (cleanInstall || deleteFile || forceInstall || notRestore || quietInstall != 0 || removeMetadata || ([ipaFiles count] + [filesNotFound count] > 0))))
     {
@@ -381,7 +421,7 @@ int main (int argc, char **argv, char **envp)
     if (lib)
     {
         MobileInstallationInstall install = (MobileInstallationInstall)dlsym(lib, "MobileInstallationInstall");
-        
+
         if (install)
         {
             NSArray *filesInTemp = [fileMgr contentsOfDirectoryAtPath:NSTemporaryDirectory() error:nil];
@@ -507,7 +547,7 @@ int main (int argc, char **argv, char **envp)
                 NSString *minSysVersion = nil;
                 NSMutableArray *supportedDeives = nil;
                 id requiredCapabilities = nil;
- 
+
                 NSMutableDictionary *infoDict = [[NSMutableDictionary alloc] initWithContentsOfFile:pathInfoPlist];
 
                 if (infoDict)
@@ -598,7 +638,7 @@ int main (int argc, char **argv, char **envp)
 
                     if (installedShortVersion != nil && appShortVersion != nil)
                     {
-                        if ([installedShortVersion compare:appShortVersion] == NSOrderedDescending)
+                        if (versionCompare(installedShortVersion, appShortVersion) == 1)
                         {
                             //Skip to avoid overriding a new version
                             if (forceInstall)
@@ -620,7 +660,7 @@ int main (int argc, char **argv, char **envp)
                     }
                     else
                     {
-                        if ([installedVerion compare:appVersion] == NSOrderedDescending)
+                        if (versionCompare(installedVerion, appVersion) == 1)
                         {
                             //Skip to avoid overriding a new version
                             if (forceInstall)
@@ -713,7 +753,7 @@ int main (int argc, char **argv, char **envp)
                 }
 
                 //Check minimun system requirement
-                if (minSysVersion && [minSysVersion compare:SystemVersion] == NSOrderedDescending)
+                if (minSysVersion && versionCompare(minSysVersion, SystemVersion) == 1)
                 {
                     //System version is less than the min required version
                     if (forceInstall)
@@ -878,7 +918,7 @@ int main (int argc, char **argv, char **envp)
                 {
                     BOOL shouldContinue = NO;
                     ZipArchive *tmpArchive = [[ZipArchive alloc] init];
-                     // APPEND_STATUS_ADDINZIP = 2
+                    // APPEND_STATUS_ADDINZIP = 2
                     if ([tmpArchive openZipFile2:installPath withZipModel:APPEND_STATUS_ADDINZIP] && ![tmpArchive addFileToZip:pathInfoPlist newname:infoPath])
                     {
                         if (quietInstall < 2)
