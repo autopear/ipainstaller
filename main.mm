@@ -4,7 +4,7 @@
 
 #include <dlfcn.h>
 
-#define EXECUTABLE_VERSION @"2.1.1"
+#define EXECUTABLE_VERSION @"2.2"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -178,7 +178,7 @@ int main (int argc, char **argv, char **envp)
 
     [currentFormatter setDateFormat:@"yyyy"];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or uninstall/browse installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nUIDevice-Extension from Erica Sadun\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or uninstall/browse installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nFSSystemHasCapability from Ryan Petrich\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
 
     [currentFormatter release];
 
