@@ -1,5 +1,5 @@
 Package: com.autopear.installipa
-Version: 2.2
+Version: 2.3
 Architecture: iphoneos-arm
 Pre-Depends: firmware (>= 4.0)
 Section: Utilities
