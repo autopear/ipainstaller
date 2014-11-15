@@ -1,5 +1,5 @@
-export ARCHS = armv6
-export TARGET=iphone:5.0:4.0
+export ARCHS = armv7
+export TARGET=iphone:8.1:4.0
 GO_EASY_ON_ME=1
 
 SUBPROJECT_NAME = minizip
