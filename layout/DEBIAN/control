@@ -1,9 +1,9 @@
 Package: com.autopear.installipa
-Version: 3.0
+Version: 3.1
 Architecture: iphoneos-arm
 Pre-Depends: firmware (>= 4.0), gsc.armv7
 Section: Utilities
-Priority: standard
+Priority: optional
 Description: Install IPA from the command line.
 Tag: role::enduser, purpose::console
 Author: Merlin

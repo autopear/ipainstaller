@@ -1,6 +1,4 @@
 #include <dlfcn.h>
-#include <iostream>
-#include <sstream>
 #import <objc/runtime.h>
 #import <UIKit/UIKit.h>
 #import "ZipArchive/ZipArchive.h"
@@ -114,7 +112,7 @@ static void setPermissionsForPath(NSString *path, NSString *executablePath) {
             [defaultAttributes setObject:[NSNumber numberWithInt:501] forKey:NSFileGroupOwnerAccountID];
             [defaultAttributes setObject:@"mobile" forKey:NSFileGroupOwnerAccountName];
 
-            if (executablePath && [[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath])
+            if (executablePath && [executablePath length] > 0 && [[path stringByAppendingPathComponent:subPath] isEqualToString:executablePath])
                 [defaultAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
             else
                 [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
@@ -188,6 +186,13 @@ static NSArray *getInstalledApplications() {
     return nil;
 }
 
+static NSString *formatDictValue(NSObject *object) {
+    return object ? (NSString *)object : @"";
+}
+
+static NSString *getBestString(NSString *main, NSString *minor) {
+    return (minor && [minor length] > 0) ? minor : (main ? main : @"");
+}
 
 static NSDictionary *getInstalledAppInfo(NSString *appIdentifier) {
     if (kCFCoreFoundationVersionNumber < 1140.10) {
@@ -197,15 +202,15 @@ static NSDictionary *getInstalledAppInfo(NSString *appIdentifier) {
         NSDictionary *appInfo = [installedAppDict objectForKey:appIdentifier];
         if (appInfo) {
             NSMutableDictionary *info = [NSMutableDictionary dictionaryWithCapacity:9];
-            [info setObject:[appInfo objectForKey:@"CFBundleIdentifier"] forKey:@"APP_ID"];
-            [info setObject:[appInfo objectForKey:@"Container"] forKey:@"BUNDLE_PATH"];
-            [info setObject:[appInfo objectForKey:@"Path"] forKey:@"APP_PATH"];
-            [info setObject:[appInfo objectForKey:@"Container"] forKey:@"DATA_PATH"];
-            [info setObject:[appInfo objectForKey:@"CFBundleVersion"] forKey:@"VERSION"];
-            [info setObject:[appInfo objectForKey:@"CFBundleShortVersionString"] forKey:@"SHORT_VERSION"];
-            [info setObject:[appInfo objectForKey:@"CFBundleName"] forKey:@"NAME"];
-            [info setObject:[appInfo objectForKey:@"CFBundleDisplayName"] forKey:@"DISPLAY_NAME"];
-            [info setObject:[appInfo objectForKey:@"CFBundleExecutable"] forKey:@"DISPLAY_NAME"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleIdentifier"]) forKey:@"APP_ID"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"Container"]) forKey:@"BUNDLE_PATH"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"Path"]) forKey:@"APP_PATH"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"Container"]) forKey:@"DATA_PATH"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleVersion"]) forKey:@"VERSION"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleShortVersionString"]) forKey:@"SHORT_VERSION"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleName"]) forKey:@"NAME"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleDisplayName"]) forKey:@"DISPLAY_NAME"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleExecutable"]) forKey:@"DISPLAY_NAME"];
             return info;
         }
     } else {
@@ -218,15 +223,15 @@ static NSDictionary *getInstalledAppInfo(NSString *appIdentifier) {
                     LSApplicationProxy *app = [LSApplicationProxy_class applicationProxyForIdentifier:appIdentifier];
                     if (app) {
                         NSMutableDictionary *info = [NSMutableDictionary dictionaryWithCapacity:9];
-                        [info setObject:app.bundleIdentifier forKey:@"APP_ID"];
-                        [info setObject:[app.bundleContainerURL path] forKey:@"BUNDLE_PATH"];
-                        [info setObject:[app.bundleURL path] forKey:@"APP_PATH"];
-                        [info setObject:[app.dataContainerURL path] forKey:@"DATA_PATH"];
-                        [info setObject:app.bundleVersion forKey:@"VERSION"];
-                        [info setObject:app.shortVersionString forKey:@"SHORT_VERSION"];
-                        [info setObject:app.localizedName forKey:@"NAME"];
-                        [info setObject:app.localizedShortName forKey:@"DISPLAY_NAME"];
-                        [info setObject:app.bundleExecutable forKey:@"EXECUTABLE"];
+                        [info setObject:formatDictValue(app.bundleIdentifier) forKey:@"APP_ID"];
+                        [info setObject:formatDictValue([app.bundleContainerURL path]) forKey:@"BUNDLE_PATH"];
+                        [info setObject:formatDictValue([app.bundleURL path]) forKey:@"APP_PATH"];
+                        [info setObject:formatDictValue([app.dataContainerURL path]) forKey:@"DATA_PATH"];
+                        [info setObject:formatDictValue(app.bundleVersion) forKey:@"VERSION"];
+                        [info setObject:formatDictValue(app.shortVersionString) forKey:@"SHORT_VERSION"];
+                        [info setObject:formatDictValue(app.localizedName) forKey:@"NAME"];
+                        [info setObject:formatDictValue(app.localizedShortName) forKey:@"DISPLAY_NAME"];
+                        [info setObject:formatDictValue(app.bundleExecutable) forKey:@"EXECUTABLE"];
                         return info;
                     }
                 }
@@ -281,6 +286,8 @@ static BOOL uninstallApplication(NSString *appIdentifier) {
 int main (int argc, char **argv, char **envp) {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 
+    freopen("/dev/null", "w", stderr); //Suppress output from NSLog
+
     //Get system info
     SystemVersion = [UIDevice currentDevice].systemVersion;
     NSString *deviceString = [UIDevice currentDevice].model;
@@ -301,7 +308,7 @@ int main (int argc, char **argv, char **envp) {
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Backup application with given identifier to IPA.\n    -B  Backup application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName, executableName, executableName, executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Back up application with given identifier to IPA.\n    -B  Back up application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName, executableName, executableName, executableName];
 
     NSDate *today = [NSDate date];
 
@@ -309,7 +316,7 @@ int main (int argc, char **argv, char **envp) {
 
     [currentFormatter setDateFormat:@"yyyy"];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or backup/browse/uninstall installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nFSSystemHasCapability from Ryan Petrich\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or back up/browse/uninstall installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nFSSystemHasCapability from Ryan Petrich\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
 
     [currentFormatter release];
 
@@ -347,40 +354,26 @@ int main (int argc, char **argv, char **envp) {
                         [pool release];
                         return IPA_FAILED;
                     }
-                    if (kCFCoreFoundationVersionNumber < 1140.10)
-                        isBackup = YES;
-                    else
-                        printf("Backup is not yet available for iOS 8.\n");
+                    isBackup = YES;
                 } else if ([p isEqualToString:@"B"]) {
                     if (isBackup) {
                         printf("Parameter -b and -B cannot be specified at the same time.\n");
                         [pool release];
                         return IPA_FAILED;
                     }
-                    if (kCFCoreFoundationVersionNumber < 1140.10)
-                        isBackupFull = YES;
-                    else
-                        printf("Backup is not yet available for iOS 8.\n");
+                    isBackupFull = YES;
                 } else if ([p isEqualToString:@"a"])
                     showAbout = YES;
-                else if ([p isEqualToString:@"c"]) {
-                    if (kCFCoreFoundationVersionNumber < 1140.10)
-                        cleanInstall = YES;
-                    else
-                        printf("Clean installation is not yet available for iOS 8.\n");
-                }
+                else if ([p isEqualToString:@"c"])
+                    cleanInstall = YES;
                 else if ([p isEqualToString:@"d"])
                     deleteFile = YES;
                 else if ([p isEqualToString:@"f"])
                     forceInstall = YES;
                 else if ([p isEqualToString:@"h"])
                     showHelp = YES;
-                else if ([p isEqualToString:@"n"]) {
-                    if (kCFCoreFoundationVersionNumber < 1140.10)
-                        notRestore = YES;
-                    else
-                        printf("No-restore is not yet available for iOS 8.\n");
-                }
+                else if ([p isEqualToString:@"n"])
+                    notRestore = YES;
                 else if ([p isEqualToString:@"q"]) {
                     if (quietInstall != 0) {
                         printf("Parameter -q and -Q cannot be specified at the same time.\n");
@@ -566,7 +559,13 @@ int main (int argc, char **argv, char **envp) {
                         identifier = arg;
                         hasSetId = 2;
                     } else if (hasSetId == 2 && hasSetOutput == 1) {
-                        savePath = arg;
+                        if ([arg hasPrefix:@"/"])
+                            savePath = arg;
+                        else
+                            savePath = [[fileMgr currentDirectoryPath] stringByAppendingPathComponent:arg];
+
+                        savePath = [savePath stringByStandardizingPath];;
+
                         hasSetOutput = 2;
 
                         if ([fileMgr fileExistsAtPath:savePath]) {
@@ -596,15 +595,20 @@ int main (int argc, char **argv, char **envp) {
                     printf("Application \"%s\" is not installed.\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
                 [pool release];
                 return IPA_FAILED;
-            }
+            } else
+                printf("Backing up application with identifier \"%s\"...\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
 
             NSString *appDirPath = [installedAppInfo objectForKey:@"BUNDLE_PATH"];
             NSString *appPath = [installedAppInfo objectForKey:@"APP_PATH"];
+            NSString *dataPath = [installedAppInfo objectForKey:@"DATA_PATH"];
             NSString *appName = [installedAppInfo objectForKey:@"NAME"];
             NSString *appDisplayName = [installedAppInfo objectForKey:@"DISPLAY_NAME"];
             NSString *appVersion = [installedAppInfo objectForKey:@"VERSION"];
             NSString *appShortVersion = [installedAppInfo objectForKey:@"SHORT_VERSION"];
-
+            if (!appDisplayName || [appDisplayName length] < 1)
+                appDisplayName = appName;
+            if (!appShortVersion || [appShortVersion length] < 1)
+                appShortVersion = appVersion;
 
             BOOL isDirectory;
             if (![fileMgr fileExistsAtPath:appDirPath isDirectory:&isDirectory]) {
@@ -630,6 +634,20 @@ int main (int argc, char **argv, char **envp) {
                     printf("%s is not a directory.\n", [appPath cStringUsingEncoding:NSUTF8StringEncoding]);
                 [pool release];
                 return IPA_FAILED;
+            }
+            if (isBackupFull) {
+                if (![fileMgr fileExistsAtPath:dataPath isDirectory:&isDirectory]) {
+                    if (quietInstall < 2)
+                        printf("Cannot find %s.\n", [dataPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                    [pool release];
+                    return IPA_FAILED;
+                }
+                if (!isDirectory) {
+                    if (quietInstall < 2)
+                        printf("%s is not a directory.\n", [dataPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                    [pool release];
+                    return IPA_FAILED;
+                }
             }
 
             //Clean before
@@ -688,36 +706,48 @@ int main (int argc, char **argv, char **envp) {
                 return IPA_FAILED;
             }
 
-            if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"iTunesArtwork"]]) {
+            if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"iTunesArtwork"]])
                 [ipaArchive addFileToZip:[appDirPath stringByAppendingPathComponent:@"iTunesArtwork"] newname:@"iTunesArtwork"];
-            }
 
-            if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"iTunesMetadata.plist"]]) {
+            if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"iTunesMetadata.plist"]])
                 [ipaArchive addFileToZip:[appDirPath stringByAppendingPathComponent:@"iTunesMetadata.plist"] newname:@"iTunesMetadata.plist"];
-            }
 
             if (isBackupFull) {
-                if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"Documents"]]) {
-                    [ipaArchive addDirectoryToZip:[appDirPath stringByAppendingPathComponent:@"Documents"] toPathInZip:@"Container/Documents/"];
-                }
-                if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"Library"]]) {
-                    BOOL globalMoved = NO;
-                    if ([fileMgr moveItemAtPath:[appDirPath stringByAppendingPathComponent:@"Library/Preferences/.GlobalPreferences.plist"] toPath:[appDirPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] error:nil])
-                        globalMoved = YES;
-                    BOOL pickerMoved = NO;
-                    if ([fileMgr moveItemAtPath:[appDirPath stringByAppendingPathComponent:@"Library/Preferences/com.apple.PeoplePicker.plist"] toPath:[appDirPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] error:nil])
-                        pickerMoved = YES;
+                if (quietInstall == 0)
+                    printf("Backing up application data...\n");
 
-                    [ipaArchive addDirectoryToZip:[appDirPath stringByAppendingPathComponent:@"Library"] toPathInZip:@"Container/Library/"];
-                    if (globalMoved) {
-                        [fileMgr moveItemAtPath:[appDirPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] toPath:[appDirPath stringByAppendingPathComponent:@"Library/Preferences/.GlobalPreferences.plist"] error:nil];
+                NSArray *dataContents = [fileMgr contentsOfDirectoryAtPath:dataPath error:nil];
+                for (NSString *file in dataContents) {
+                    if ([file hasSuffix:@".app"] ||
+                        [file isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"] ||
+                        [file isEqualToString:@".com.apple.mobileinstallation.placeholder"] ||
+                        [file isEqualToString:@".GlobalPreferences.plist"] ||
+                        [file isEqualToString:@"com.apple.PeoplePicker.plist"] ||
+                        [file isEqualToString:@"iTunesArtwork"] ||
+                        [file isEqualToString:@"iTunesMetadata.plist"])
+                        continue;
+
+                    if ([file isEqualToString:@"Library"]){
+                        BOOL globalMoved = NO;
+                        if ([fileMgr moveItemAtPath:[dataPath stringByAppendingPathComponent:@"Library/Preferences/.GlobalPreferences.plist"] toPath:[dataPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] error:nil])
+                            globalMoved = YES;
+                        BOOL pickerMoved = NO;
+                        if ([fileMgr moveItemAtPath:[dataPath stringByAppendingPathComponent:@"Library/Preferences/com.apple.PeoplePicker.plist"] toPath:[dataPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] error:nil])
+                            pickerMoved = YES;
+
+                        [ipaArchive addDirectoryToZip:[dataPath stringByAppendingPathComponent:@"Library"] toPathInZip:@"Container/Library/"];
+                        if (globalMoved)
+                            [fileMgr moveItemAtPath:[dataPath stringByAppendingPathComponent:@".GlobalPreferences.plist"] toPath:[dataPath stringByAppendingPathComponent:@"Library/Preferences/.GlobalPreferences.plist"] error:nil];
+                        if (pickerMoved)
+                            [fileMgr moveItemAtPath:[dataPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] toPath:[dataPath stringByAppendingPathComponent:@"Library/Preferences/com.apple.PeoplePicker.plist"] error:nil];
+                    } else {
+                        NSString *sourcePath = [dataPath stringByAppendingPathComponent:file];
+                        BOOL isDir;
+                        if ([fileMgr fileExistsAtPath:sourcePath isDirectory:&isDir] && isDir)
+                            [ipaArchive addDirectoryToZip:sourcePath toPathInZip:[NSString stringWithFormat:@"Container/%@/", file]];
+                        else
+                            [ipaArchive addFileToZip:sourcePath newname:[NSString stringWithFormat:@"Container/%@/", file]];
                     }
-                    if (pickerMoved) {
-                        [fileMgr moveItemAtPath:[appDirPath stringByAppendingPathComponent:@"com.apple.PeoplePicker.plist"] toPath:[appDirPath stringByAppendingPathComponent:@"Library/Preferences/com.apple.PeoplePicker.plist"] error:nil];
-                    }
-                }
-                if ([fileMgr fileExistsAtPath:[appDirPath stringByAppendingPathComponent:@"tmp"]]) {
-                    [ipaArchive addDirectoryToZip:[appDirPath stringByAppendingPathComponent:@"tmp"] toPathInZip:@"Container/tmp/"];
                 }
             }
 
@@ -788,18 +818,17 @@ int main (int argc, char **argv, char **envp) {
                         printf("Failed to clean caches.\n");
                 }
 
-                if (quietInstall == 0) {
-                    printf("The application has been backup to %s.\n", [savePath cStringUsingEncoding:NSUTF8StringEncoding]);
-                }
+                if (quietInstall == 0)
+                    printf("The application has been backed up as %s.\n", [savePath cStringUsingEncoding:NSUTF8StringEncoding]);
 
                 [pool release];
                 return 0;
             } else {
                 NSString *nameBase;
                 if (isBackup)
-                    nameBase = [NSString stringWithFormat:@"%@ (%@) v%@", appDisplayName ? appDisplayName : appName, identifier, appShortVersion ? appShortVersion : appVersion];
+                    nameBase = [NSString stringWithFormat:@"%@ (%@) v%@", getBestString(appName, appDisplayName), identifier, getBestString(appVersion, appShortVersion)];
                 else
-                    nameBase = [NSString stringWithFormat:@"%@ (%@) v%@ (Full)", appDisplayName ? appDisplayName : appName, identifier, appShortVersion ? appShortVersion : appVersion];
+                    nameBase = [NSString stringWithFormat:@"%@ (%@) v%@ (Full)", getBestString(appName, appDisplayName), identifier, getBestString(appVersion, appShortVersion)];
                 NSString *saveDir = @"/private/var/mobile/Documents";
 
                 if (![fileMgr fileExistsAtPath:saveDir]) {
@@ -832,7 +861,7 @@ int main (int argc, char **argv, char **envp) {
                 }
 
                 //Move
-                NSString *ipaPath = [NSString stringWithFormat:@"%@/%@.ipa", saveDir, nameBase];
+                NSString *ipaPath = [[NSString stringWithFormat:@"%@/%@.ipa", saveDir, nameBase] stringByStandardizingPath];
                 if ([fileMgr fileExistsAtPath:ipaPath]) {
                     for (int i=1; ; i++) {
                         ipaPath = [NSString stringWithFormat:@"%@/%@ %d.ipa", saveDir, nameBase, i];
@@ -859,9 +888,8 @@ int main (int argc, char **argv, char **envp) {
                         printf("Failed to clean caches.\n");
                 }
 
-                if (quietInstall == 0) {
-                    printf("The application has been backup to %s.\n", [ipaPath cStringUsingEncoding:NSUTF8StringEncoding]);
-                }
+                if (quietInstall == 0)
+                    printf("The application has been backed up as %s.\n", [ipaPath cStringUsingEncoding:NSUTF8StringEncoding]);
 
                 [pool release];
                 return 0;
@@ -1423,7 +1451,8 @@ int main (int argc, char **argv, char **envp) {
             if (installedAppDict) {
                 NSString *installedVerion = [installedAppDict objectForKey:@"VERSION"];
                 NSString *installedShortVersion = [installedAppDict objectForKey:@"SHORT_VERSION"];
-                NSString *installedLocation = [installedAppDict objectForKey:@"BUNDLE_PATH"];
+                NSString *installedAppLocation = [installedAppDict objectForKey:@"BUNDLE_PATH"];
+                NSString *installedDataLocation = [installedAppDict objectForKey:@"DATA_PATH"];
                 NSString *appExecutablePath = [[installedAppDict objectForKey:@"APP_PATH"] stringByAppendingPathComponent:[installedAppDict objectForKey:@"EXECUTABLE"]];
 
                 BOOL appInstalled = YES;
@@ -1437,7 +1466,7 @@ int main (int argc, char **argv, char **envp) {
                 if (appInstalled) {
                     //Recover the original Info.plist in force installation
                     if (shouldUpdateInfoPlist) {
-                        NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedLocation, [[infoPath pathComponents] objectAtIndex:1]];
+                        NSString *pathInstalledInfoPlist = [NSString stringWithFormat:@"%@/%@/Info.plist", installedAppLocation, [[infoPath pathComponents] objectAtIndex:1]];
                         BOOL isDirectory;
                         if ([fileMgr fileExistsAtPath:pathInstalledInfoPlist isDirectory:&isDirectory]) {
                             if (!isDirectory) {
@@ -1466,60 +1495,61 @@ int main (int argc, char **argv, char **envp) {
                         if (quietInstall == 0)
                             printf("Cleaning old contents of %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
 
-                        NSString *dirDocuments = [installedLocation stringByAppendingPathComponent:@"Documents"];
-                        NSString *dirLibrary = [installedLocation stringByAppendingPathComponent:@"Library"];
-                        NSString *dirTmp = [installedLocation stringByAppendingPathComponent:@"tmp"];
-
                         BOOL allContentsCleaned = YES;
 
-                        //Clear Documents
-                        BOOL isDirectory;
-                        if ([fileMgr fileExistsAtPath:dirDocuments isDirectory:&isDirectory]) {
-                            if (isDirectory) {
-                                NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirDocuments error:nil];
-                                for (int unsigned j=0; j<[dirContents count]; j++) {
-                                    if (![fileMgr removeItemAtPath:[dirDocuments stringByAppendingPathComponent:[dirContents objectAtIndex:j]] error:nil])
-                                        allContentsCleaned = NO;
-                                }
-                            }
-                        }
-                        //Clear Library
-                        if ([fileMgr fileExistsAtPath:dirLibrary isDirectory:&isDirectory]) {
-                            NSString *dirPreferences = [dirLibrary stringByAppendingPathComponent:@"Preferences"];
-                            NSString *dirCaches = [dirLibrary stringByAppendingPathComponent:@"Caches"];
+                        NSArray *dataContents = [fileMgr contentsOfDirectoryAtPath:installedDataLocation error:nil];
+                        for (NSString *file in dataContents) {
+                            if ([file hasSuffix:@".app"] ||
+                                [file isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"] ||
+                                [file isEqualToString:@".com.apple.mobileinstallation.placeholder"] ||
+                                [file isEqualToString:@"iTunesArtwork"] ||
+                                [file isEqualToString:@"iTunesMetadata.plist"])
+                                continue;
 
-                            NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirLibrary error:nil];
-                            for (int unsigned j=0; j<[dirContents count]; j++) {
-                                NSString *fileName = [dirContents objectAtIndex:j];
-                                if ([fileName isEqualToString:@"Preferences"]) {
-                                    NSArray *preferencesContents = [fileMgr contentsOfDirectoryAtPath:dirPreferences error:nil];
-                                    for (unsigned int k=0; k<[preferencesContents count]; k++) {
-                                        NSString *preferenceFile = [preferencesContents objectAtIndex:k];
-                                        if (![preferenceFile isEqualToString:@".GlobalPreferences.plist"] && ![preferenceFile isEqualToString:@"com.apple.PeoplePicker.plist"]) {
-                                            if (![fileMgr removeItemAtPath:[dirPreferences stringByAppendingPathComponent:preferenceFile] error:nil])
+                            if ([file isEqualToString:@"Library"]){
+                                NSString *dirLibrary = [installedDataLocation stringByAppendingPathComponent:@"Library"];
+                                NSString *dirPreferences = [dirLibrary stringByAppendingPathComponent:@"Preferences"];
+                                NSString *dirCaches = [dirLibrary stringByAppendingPathComponent:@"Caches"];
+
+                                NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirLibrary error:nil];
+                                for (int unsigned j=0; j<[dirContents count]; j++) {
+                                    NSString *fileName = [dirContents objectAtIndex:j];
+                                    if ([fileName isEqualToString:@"Preferences"]) {
+                                        NSArray *preferencesContents = [fileMgr contentsOfDirectoryAtPath:dirPreferences error:nil];
+                                        for (unsigned int k=0; k<[preferencesContents count]; k++) {
+                                            NSString *preferenceFile = [preferencesContents objectAtIndex:k];
+                                            if (![preferenceFile isEqualToString:@".GlobalPreferences.plist"] && ![preferenceFile isEqualToString:@"com.apple.PeoplePicker.plist"]) {
+                                                if (![fileMgr removeItemAtPath:[dirPreferences stringByAppendingPathComponent:preferenceFile] error:nil])
+                                                    allContentsCleaned = NO;
+                                            }
+                                        }
+                                    } else if ([fileName isEqualToString:@"Caches"]) {
+                                        NSArray *cachesContents = [fileMgr contentsOfDirectoryAtPath:dirCaches error:nil];
+                                        for (unsigned int k=0; k<[cachesContents count]; k++) {
+                                            if (![fileMgr removeItemAtPath:[dirCaches stringByAppendingPathComponent:[cachesContents objectAtIndex:k]] error:nil])
                                                 allContentsCleaned = NO;
                                         }
+                                    } else {
+                                        if (![fileMgr removeItemAtPath:[dirLibrary stringByAppendingPathComponent:fileName] error:nil])
+                                            allContentsCleaned = NO;
                                     }
-                                } else if ([fileName isEqualToString:@"Caches"]) {
-                                    NSArray *cachesContents = [fileMgr contentsOfDirectoryAtPath:dirCaches error:nil];
-                                    for (unsigned int k=0; k<[cachesContents count]; k++) {
-                                        if (![fileMgr removeItemAtPath:[dirCaches stringByAppendingPathComponent:[cachesContents objectAtIndex:k]] error:nil])
+                                }
+                            } else {
+                                NSString *sourcePath = [installedDataLocation stringByAppendingPathComponent:file];
+                                BOOL isDir;
+                                if ([fileMgr fileExistsAtPath:sourcePath isDirectory:&isDir] && isDir) {
+                                    NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:sourcePath error:nil];
+                                    for (int unsigned j=0; j<[dirContents count]; j++) {
+                                        if (![fileMgr removeItemAtPath:[sourcePath stringByAppendingPathComponent:[dirContents objectAtIndex:j]] error:nil])
                                             allContentsCleaned = NO;
                                     }
                                 } else {
-                                    if (![fileMgr removeItemAtPath:[dirLibrary stringByAppendingPathComponent:fileName] error:nil])
+                                    if (![fileMgr removeItemAtPath:sourcePath error:nil])
                                         allContentsCleaned = NO;
                                 }
                             }
                         }
-                        //Clear tmp
-                        if ([fileMgr fileExistsAtPath:dirTmp isDirectory:&isDirectory]) {
-                            NSArray *dirContents = [fileMgr contentsOfDirectoryAtPath:dirTmp error:nil];
-                            for (int unsigned j=0; j<[dirContents count]; j++) {
-                                if (![fileMgr removeItemAtPath:[dirTmp stringByAppendingPathComponent:[dirContents objectAtIndex:j]] error:nil])
-                                    allContentsCleaned = NO;
-                            }
-                        }
+
                         if (!allContentsCleaned) {
                             if (quietInstall < 2)
                                 printf("Failed to clean old contents of %s.\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
@@ -1542,14 +1572,7 @@ int main (int argc, char **argv, char **envp) {
                                     BOOL allSuccessfull = YES;
                                     for (unsigned int j=0; j<[containerContents count]; j++) {
                                         NSString *dirName = [containerContents objectAtIndex:j];
-                                        if ([dirName isEqualToString:@"Documents"]) {
-                                            NSString *containerDocumentsPath = [containerPath stringByAppendingPathComponent:dirName];
-                                            NSArray *containerDocumentsContents = [fileMgr contentsOfDirectoryAtPath:containerDocumentsPath error:nil];
-                                            for (unsigned int k=0; k<[containerDocumentsContents count]; k++) {
-                                                if (![fileMgr moveItemAtPath:[containerDocumentsPath stringByAppendingPathComponent:[containerDocumentsContents objectAtIndex:k]] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:[containerDocumentsContents objectAtIndex:k]] error:nil])
-                                                    allSuccessfull = NO;
-                                            }
-                                        } else if ([dirName isEqualToString:@"Library"]) {
+                                        if ([dirName isEqualToString:@"Library"]) {
                                             NSString *containerLibraryPath = [containerPath stringByAppendingPathComponent:dirName];
                                             NSArray *containerLibraryContents = [fileMgr contentsOfDirectoryAtPath:containerLibraryPath error:nil];
                                             for (unsigned int k=0; k<[containerLibraryContents count]; k++) {
@@ -1558,7 +1581,7 @@ int main (int argc, char **argv, char **envp) {
                                                     NSString *dirCachePath = [containerLibraryPath stringByAppendingPathComponent:dirLibraryName];
                                                     NSArray *containerCachesContents = [fileMgr contentsOfDirectoryAtPath:dirCachePath error:nil];
                                                     for (unsigned int m=0; m<[containerCachesContents count]; m++) {
-                                                        if (![fileMgr moveItemAtPath:[dirCachePath stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] toPath:[[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] error:nil])
+                                                        if (![fileMgr moveItemAtPath:[dirCachePath stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] toPath:[[[installedDataLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:[containerCachesContents objectAtIndex:m]] error:nil])
                                                             allSuccessfull = NO;
                                                     }
                                                 } else if ([dirLibraryName isEqualToString:@"Preferences"]) {
@@ -1567,30 +1590,26 @@ int main (int argc, char **argv, char **envp) {
                                                     for (unsigned int m=0; m<[containerPreferencesContents count]; m++) {
                                                         NSString *preferencesFileName = [containerPreferencesContents objectAtIndex:m];
                                                         if (![preferencesFileName isEqualToString:@".GlobalPreferences.plist"] && ![preferencesFileName isEqualToString:@"com.apple.PeoplePicker.plist"]) {
-                                                            if (![fileMgr moveItemAtPath:[dirPreferencesPath stringByAppendingPathComponent:preferencesFileName] toPath:[[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:preferencesFileName] error:nil])
+                                                            if (![fileMgr moveItemAtPath:[dirPreferencesPath stringByAppendingPathComponent:preferencesFileName] toPath:[[[installedDataLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] stringByAppendingPathComponent:preferencesFileName] error:nil])
                                                                 allSuccessfull = NO;
                                                         }
                                                     }
                                                 } else {
-                                                    if (![fileMgr moveItemAtPath:[containerLibraryPath stringByAppendingPathComponent:dirLibraryName] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] error:nil])
+                                                    if (![fileMgr moveItemAtPath:[containerLibraryPath stringByAppendingPathComponent:dirLibraryName] toPath:[[installedDataLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:dirLibraryName] error:nil])
                                                         allSuccessfull = NO;
                                                 }
-                                            }
-                                        } else if ([dirName isEqualToString:@"tmp"]) {
-                                            NSString *containerTmpPath = [containerPath stringByAppendingPathComponent:dirName];
-                                            NSArray *containerTmpContents = [fileMgr contentsOfDirectoryAtPath:containerTmpPath error:nil];
-                                            for (unsigned int k=0; k<[containerTmpContents count]; k++) {
-                                                if (![fileMgr moveItemAtPath:[containerTmpPath stringByAppendingPathComponent:[containerTmpContents objectAtIndex:k]] toPath:[[installedLocation stringByAppendingPathComponent:dirName] stringByAppendingPathComponent:[containerTmpContents objectAtIndex:k]] error:nil])
-                                                    allSuccessfull = NO;
                                             }
                                         } else {
-                                            if ([fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:dirName]]) {
-                                                if ([fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil]) {
-                                                    if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:dirName] toPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil])
+                                            NSString *containerSourcePath = [containerPath stringByAppendingPathComponent:dirName];
+                                            NSString *destPath = [installedDataLocation stringByAppendingPathComponent:dirName];
+                                            if ([fileMgr fileExistsAtPath:destPath]) {
+                                                if ([fileMgr removeItemAtPath:destPath error:nil]) {
+                                                    if (![fileMgr moveItemAtPath:containerSourcePath toPath:destPath error:nil])
                                                         allSuccessfull = NO;
-                                                }
+                                                } else
+                                                    allSuccessfull = NO;
                                             } else {
-                                                if (![fileMgr moveItemAtPath:[containerPath stringByAppendingPathComponent:dirName] toPath:[installedLocation stringByAppendingPathComponent:dirName] error:nil])
+                                                if (![fileMgr moveItemAtPath:containerSourcePath toPath:destPath error:nil])
                                                     allSuccessfull = NO;
                                             }
                                         }
@@ -1608,20 +1627,21 @@ int main (int argc, char **argv, char **envp) {
 
                     //Remove metadata
                     BOOL isDirectory;
-                    if (removeMetadata && [fileMgr fileExistsAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:&isDirectory]) {
+                    if (removeMetadata && [fileMgr fileExistsAtPath:[installedAppLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] isDirectory:&isDirectory]) {
                         if (!isDirectory) {
                             if (quietInstall == 0)
                                 printf("Removing iTunesMetadata.plist for %s...\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
-                            if (![fileMgr removeItemAtPath:[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil]) {
+                            if (![fileMgr removeItemAtPath:[installedAppLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] error:nil]) {
                                 if (quietInstall < 2)
-                                    printf("Failed to remove %s.\n", [[installedLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
+                                    printf("Failed to remove %s.\n", [[installedAppLocation stringByAppendingPathComponent:@"iTunesMetadata.plist"] cStringUsingEncoding:NSUTF8StringEncoding]);
                             }
                         }
                     }
 
                     //Set overall permission
-                    //system([[NSString stringWithFormat:@"chown -R mobile:mobile %@", installedLocation] cStringUsingEncoding:NSUTF8StringEncoding]);
-                    setPermissionsForPath(installedLocation, appExecutablePath);
+                    //system([[NSString stringWithFormat:@"chown -R mobile:mobile %@", installedAppLocation] cStringUsingEncoding:NSUTF8StringEncoding]);
+                    setPermissionsForPath(installedAppLocation, appExecutablePath);
+                    setPermissionsForPath(installedDataLocation, @"");
                 } else {
                     if (quietInstall < 2)
                         printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);
