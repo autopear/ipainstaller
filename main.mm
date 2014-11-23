@@ -4,7 +4,7 @@
 #import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
-#define EXECUTABLE_VERSION @"3.0"
+#define EXECUTABLE_VERSION @"3.1"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
