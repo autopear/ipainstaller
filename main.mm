@@ -4,7 +4,7 @@
 #import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
-#define EXECUTABLE_VERSION @"3.1"
+#define EXECUTABLE_VERSION @"3.2"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -128,11 +128,13 @@ static void setPermissionsForPath(NSString *path, NSString *executablePath) {
 
 static int versionCompare(NSString *ver1, NSString *ver2) {
     //-1: ver1<ver2; 0: ver1=ver2; 1: ver1>ver2
-    if (!ver1 && !ver2)
+    BOOL isEmpty1 = (ver1 == nil || [ver1 length] == 0);
+    BOOL isEmpty2 = (ver2 == nil || [ver2 length] == 0);
+    if (isEmpty1 && isEmpty2)
         return 0;
-    else if (!ver1 && ver2)
+    else if (isEmpty1 && !isEmpty2)
         return -1;
-    else if (ver1 && !ver2)
+    else if (!isEmpty1 && isEmpty2)
         return 1;
     else {
         NSArray *components1 = [ver1 componentsSeparatedByString:@"."];
@@ -328,137 +330,54 @@ int main (int argc, char **argv, char **envp) {
 
     NSFileManager *fileMgr = [NSFileManager defaultManager];
 
-    NSMutableArray *ipaFiles = [NSMutableArray arrayWithCapacity:0];
-    NSMutableArray *filesNotFound = [NSMutableArray arrayWithCapacity:0];
-    BOOL noParameters = NO;
-    BOOL showHelp = NO;
-    BOOL showAbout = NO;
-    for (unsigned int i=1; i<[arguments count]; i++) {
-        NSString *arg = [arguments objectAtIndex:i];
-        if ([arg hasPrefix:@"-" ]) {
-            if ([arg length] < 2 || noParameters) {
-                printf("Invalid parameters.\n");
-                [pool release];
-                return IPA_FAILED;
-            }
+    if ([arguments count] >= 3) {
+        NSMutableArray *identifiers = [NSMutableArray array];
 
-            for (unsigned int j=1; j<[arg length]; j++) {
-                NSString *p = [arg substringWithRange:NSMakeRange(j, 1)];
-                if ([p isEqualToString:@"u"])
-                    isUninstall = YES;
-                else if ([p isEqualToString:@"l"])
-                    isListing = YES;
-                else if ([p isEqualToString:@"b"]) {
-                    if (isBackupFull) {
-                        printf("Parameter b and B cannot be specified at the same time.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                    isBackup = YES;
-                } else if ([p isEqualToString:@"B"]) {
-                    if (isBackup) {
-                        printf("Parameter -b and -B cannot be specified at the same time.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                    isBackupFull = YES;
-                } else if ([p isEqualToString:@"a"])
-                    showAbout = YES;
-                else if ([p isEqualToString:@"c"])
-                    cleanInstall = YES;
-                else if ([p isEqualToString:@"d"])
-                    deleteFile = YES;
-                else if ([p isEqualToString:@"f"])
-                    forceInstall = YES;
-                else if ([p isEqualToString:@"h"])
-                    showHelp = YES;
-                else if ([p isEqualToString:@"n"])
-                    notRestore = YES;
-                else if ([p isEqualToString:@"q"]) {
-                    if (quietInstall != 0) {
-                        printf("Parameter -q and -Q cannot be specified at the same time.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                    quietInstall = 1;
-                } else if ([p isEqualToString:@"Q"]) {
-                    if (quietInstall != 0) {
-                        printf("Parameter -q and -Q cannot be specified at the same time.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                    quietInstall = 2;
-                } else if ([p isEqualToString:@"r"])
-                    removeMetadata = YES;
-                else if ([p isEqualToString:@"o"]) {
-                    if (!isBackup && !isBackupFull) {
-                        printf("You must specify -b or -B before -o.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                } else {
-                    printf("Invalid parameter '%s'.\n", [p cStringUsingEncoding:NSUTF8StringEncoding]);
-                    [pool release];
-                    return IPA_FAILED;
-                }
+        NSString *op1 = [arguments objectAtIndex:1];
+        if ([op1 isEqualToString:@"-uq"] || [op1 isEqualToString:@"-qu"]) {
+            isUninstall = YES;
+            quietInstall = 1;
+            for (unsigned int i=2; i<[arguments count]; i++)
+                [identifiers addObject:[arguments objectAtIndex:i]];
+        }
+        if ([op1 isEqualToString:@"-uQ"] || [op1 isEqualToString:@"-Qu"]) {
+            isUninstall = YES;
+            quietInstall = 2;
+            for (unsigned int i=2; i<[arguments count]; i++)
+                [identifiers addObject:[arguments objectAtIndex:i]];
+        }
+        NSString *op2 = [arguments objectAtIndex:2];
+        if ([op1 isEqualToString:@"-u"]) {
+            isUninstall = YES;
+            if ([op2 isEqualToString:@"-q"]) {
+                quietInstall = 1;
+                for (unsigned int i=3; i<[arguments count]; i++)
+                    [identifiers addObject:[arguments objectAtIndex:i]];
             }
-        } else {
-            if (!isBackup && !isBackupFull) {
-                noParameters = YES;
-                NSURL *url = [NSURL fileURLWithPath:arg isDirectory:NO];
-                BOOL isDirectory;
-                if (url && [fileMgr fileExistsAtPath:[[url absoluteURL] path] isDirectory:&isDirectory]) {
-                    if (isDirectory)
-                        [filesNotFound addObject:arg];
-                    else
-                        [ipaFiles addObject:[[url absoluteURL] path]]; //File exists
-                } else
-                    [filesNotFound addObject:arg];
+            else if ([op2 isEqualToString:@"-Q"]) {
+                quietInstall = 2;
+                for (unsigned int i=3; i<[arguments count]; i++)
+                    [identifiers addObject:[arguments objectAtIndex:i]];
+            } else {
+                for (unsigned int i=2; i<[arguments count]; i++)
+                    [identifiers addObject:[arguments objectAtIndex:i]];
             }
         }
-    }
-
-    if (isListing) {
-        getInstalledApplications();
-        if ([arguments count] != 2) {
-            printf("Invalid parameters.\n");
-            [pool release];
-            return IPA_FAILED;
-        } else {
-            NSArray * identifiers = getInstalledApplications();
-
-            for (unsigned int i=0; i<[identifiers count]; i++)
-                printf("%s\n", [(NSString *)[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
-            [pool release];
-            return 0;
-        }
-    }
-
-    if (isUninstall) {
-        if ([arguments count] < 3) {
-            printf("Invalid parameters.\n");
-            [pool release];
-            return IPA_FAILED;
-        } else {
-            NSMutableArray *identifiers = [NSMutableArray arrayWithCapacity:0];
-            for (unsigned int i=1; i<[arguments count]; i++) {
-                NSString *arg = [arguments objectAtIndex:i];
-                if ([arg hasPrefix:@"-" ]) {
-                    if (!([arg isEqualToString:@"-u"] ||
-                          [arg isEqualToString:@"-q"] ||
-                          [arg isEqualToString:@"-Q"] ||
-                          [arg isEqualToString:@"-uq"] ||
-                          [arg isEqualToString:@"-qu"] ||
-                          [arg isEqualToString:@"-uQ"] ||
-                          [arg isEqualToString:@"-Qu"])) {
-                        printf("Invalid parameters.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                } else
-                    [identifiers addObject:arg];
+        if ([op2 isEqualToString:@"-u"]) {
+            if ([op1 isEqualToString:@"-q"]) {
+                isUninstall = YES;
+                quietInstall = 1;
+                for (unsigned int i=3; i<[arguments count]; i++)
+                    [identifiers addObject:[arguments objectAtIndex:i]];
             }
+            if ([op1 isEqualToString:@"-Q"]) {
+                quietInstall = 2;
+                for (unsigned int i=3; i<[arguments count]; i++)
+                    [identifiers addObject:[arguments objectAtIndex:i]];
+            }
+        }
 
+        if (isUninstall) {
             if ([identifiers count] < 1) {
                 printf("You must specify at least one application identifier.\n");
                 [pool release];
@@ -486,104 +405,166 @@ int main (int argc, char **argv, char **envp) {
                 return 0;
             }
         }
-    }
 
-    if (isBackup || isBackupFull) {
-        if ([arguments count] < 3) {
-            printf("Invalid parameters.\n");
-            [pool release];
-            return IPA_FAILED;
-        } else {
-            NSString *identifier = nil;
-            NSString *savePath = nil;
-            int hasSetId = 0;
-            int hasSetOutput = 0;
-            for (unsigned int i=1; i<[arguments count]; i++) {
-                NSString *arg = [arguments objectAtIndex:i];
-                if ([arg hasPrefix:@"-" ]) {
-                    if (!([arg isEqualToString:@"-b"] ||
-                          [arg isEqualToString:@"-B"] ||
-                          [arg isEqualToString:@"-q"] ||
-                          [arg isEqualToString:@"-Q"] ||
-                          [arg isEqualToString:@"-bq"] ||
-                          [arg isEqualToString:@"-qb"] ||
-                          [arg isEqualToString:@"-bQ"] ||
-                          [arg isEqualToString:@"-Qb"] ||
-                          [arg isEqualToString:@"-Bq"] ||
-                          [arg isEqualToString:@"-qB"] ||
-                          [arg isEqualToString:@"-BQ"] ||
-                          [arg isEqualToString:@"-QB"] ||
-                          [arg isEqualToString:@"-o"])) {
-                        printf("Invalid parameters.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
-                    if ([arg isEqualToString:@"-o"]) {
-                        if (hasSetId != 2) {
-                            printf("Invalid parameters.\n");
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-                        if (hasSetOutput == 0) {
-                            hasSetOutput = 1;
-                        } else {
-                            printf("Invalid parameters.\n");
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-                    } else if ([arg isEqualToString:@"-q"] || [arg isEqualToString:@"-Q"]) {
-                        if (!((hasSetId == 0 && hasSetOutput == 0) ||
-                            (hasSetId == 2 && hasSetOutput == 0) ||
-                            (hasSetId == 2 && hasSetOutput == 2))) {
-                            printf("Invalid parameters.\n");
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-                    } else {
-                        if (hasSetOutput != 0) {
-                            printf("Invalid parameters.\n");
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-
-                        if (hasSetId == 0) {
-                            hasSetId = 1;
-                        }else {
-                            printf("Invalid parameters.\n");
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-                    }
-                } else {
-                    if (hasSetId == 1 && hasSetOutput == 0) {
-                        identifier = arg;
-                        hasSetId = 2;
-                    } else if (hasSetId == 2 && hasSetOutput == 1) {
-                        if ([arg hasPrefix:@"/"])
-                            savePath = arg;
-                        else
-                            savePath = [[fileMgr currentDirectoryPath] stringByAppendingPathComponent:arg];
-
-                        savePath = [savePath stringByStandardizingPath];;
-
-                        hasSetOutput = 2;
-
-                        if ([fileMgr fileExistsAtPath:savePath]) {
-                            printf("%s already exists.\n", [savePath cStringUsingEncoding:NSUTF8StringEncoding]);
-                            [pool release];
-                            return IPA_FAILED;
-                        }
-
-                    } else {
-                        printf("Invalid parameters.\n");
-                        [pool release];
-                        return IPA_FAILED;
-                    }
+        NSString *identifier = nil, *savePath = nil;
+        if ([op1 isEqualToString:@"-bq"] || [op1 isEqualToString:@"-qb"]) {
+            isBackup = YES;
+            quietInstall = 1;
+            if ([arguments count] == 5) {
+                identifier = [arguments objectAtIndex:2];
+                NSString *opOutput = [arguments objectAtIndex:3];
+                if (![opOutput isEqualToString:@"-o"]) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
                 }
-            }
+                savePath = [arguments objectAtIndex:4];
+            } else if ([arguments count] != 3) {
+                printf("Invalid parameters.\n");
+                [pool release];
+                return 0;
+            } else
+                identifier = [arguments objectAtIndex:2];
+        }
+        if ([op1 isEqualToString:@"-bQ"] || [op1 isEqualToString:@"-Qb"]) {
+            isBackup = YES;
+            quietInstall = 2;
+            if ([arguments count] == 5) {
+                identifier = [arguments objectAtIndex:2];
+                NSString *opOutput = [arguments objectAtIndex:3];
+                if (![opOutput isEqualToString:@"-o"]) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                }
+                savePath = [arguments objectAtIndex:4];
+            } else if ([arguments count] != 3) {
+                printf("Invalid parameters.\n");
+                [pool release];
+                return 0;
+            } else
+                identifier = [arguments objectAtIndex:2];
+        }
+        if ([op1 isEqualToString:@"-Bq"] || [op1 isEqualToString:@"-qB"]) {
+            isBackupFull = YES;
+            quietInstall = 1;
+            if ([arguments count] == 5) {
+                identifier = [arguments objectAtIndex:2];
+                NSString *opOutput = [arguments objectAtIndex:3];
+                if (![opOutput isEqualToString:@"-o"]) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                }
+                savePath = [arguments objectAtIndex:4];
+            } else if ([arguments count] != 3) {
+                printf("Invalid parameters.\n");
+                [pool release];
+                return 0;
+            } else
+                identifier = [arguments objectAtIndex:2];
+        }
+        if ([op1 isEqualToString:@"-BQ"] || [op1 isEqualToString:@"-QB"]) {
+            isBackupFull = YES;
+            quietInstall = 2;
+            if ([arguments count] == 5) {
+                identifier = [arguments objectAtIndex:2];
+                NSString *opOutput = [arguments objectAtIndex:3];
+                if (![opOutput isEqualToString:@"-o"]) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                }
+                savePath = [arguments objectAtIndex:4];
+            } else if ([arguments count] != 3) {
+                printf("Invalid parameters.\n");
+                [pool release];
+                return 0;
+            } else
+                identifier = [arguments objectAtIndex:2];
+        }
+        if ([op1 isEqualToString:@"-b"] || [op1 isEqualToString:@"-B"]) {
+            if ([op1 isEqualToString:@"-b"])
+                isBackup = YES;
+            else
+                isBackupFull = YES;
 
+            if ([op2 isEqualToString:@"-q"] || [op2 isEqualToString:@"-Q"]) {
+                quietInstall = [op2 isEqualToString:@"-q"] ? 1 : 2;
+                if ([arguments count] == 6) {
+                    identifier = [arguments objectAtIndex:3];
+                    NSString *opOutput = [arguments objectAtIndex:4];
+                    if (![opOutput isEqualToString:@"-o"]) {
+                        printf("Invalid parameters.\n");
+                        [pool release];
+                        return 0;
+                    }
+                    savePath = [arguments objectAtIndex:5];
+                } else if ([arguments count] != 4) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                } else
+                    identifier = [arguments objectAtIndex:3];
+            } else {
+                if ([arguments count] == 5) {
+                    identifier = [arguments objectAtIndex:2];
+                    NSString *opOutput = [arguments objectAtIndex:3];
+                    if (![opOutput isEqualToString:@"-o"]) {
+                        printf("Invalid parameters.\n");
+                        [pool release];
+                        return 0;
+                    }
+                    savePath = [arguments objectAtIndex:4];
+                } else if ([arguments count] != 3) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                } else
+                    identifier = [arguments objectAtIndex:2];
+            }
+        }
+        if ([op2 isEqualToString:@"-b"] || [op2 isEqualToString:@"-B"]) {
+            if ([op1 isEqualToString:@"-q"] || [op1 isEqualToString:@"-Q"]) {
+                if ([op2 isEqualToString:@"-b"])
+                    isBackup = YES;
+                else
+                    isBackupFull = YES;
+                quietInstall = [op1 isEqualToString:@"-q"] ? 1 : 2;
+                if ([arguments count] == 6) {
+                    identifier = [arguments objectAtIndex:3];
+                    NSString *opOutput = [arguments objectAtIndex:4];
+                    if (![opOutput isEqualToString:@"-o"]) {
+                        printf("Invalid parameters.\n");
+                        [pool release];
+                        return 0;
+                    }
+                    savePath = [arguments objectAtIndex:5];
+                } else if ([arguments count] != 4) {
+                    printf("Invalid parameters.\n");
+                    [pool release];
+                    return 0;
+                } else
+                    identifier = [arguments objectAtIndex:3];
+            }
+        }
+
+        if (isBackup || isBackupFull) {
             if ([identifier length] < 1) {
                 printf("You must specify an application identifier.\n");
+                [pool release];
+                return 0;
+            }
+
+            if (savePath) {
+                if (![savePath hasPrefix:@"/"])
+                    savePath = [[fileMgr currentDirectoryPath] stringByAppendingPathComponent:savePath];
+
+                savePath = [savePath stringByStandardizingPath];;
+            }
+
+            if ([fileMgr fileExistsAtPath:savePath]) {
+                printf("%s already exists.\n", [savePath cStringUsingEncoding:NSUTF8StringEncoding]);
                 [pool release];
                 return IPA_FAILED;
             }
@@ -894,6 +875,112 @@ int main (int argc, char **argv, char **envp) {
                 [pool release];
                 return 0;
             }
+        }
+    }
+
+    NSMutableArray *ipaFiles = [NSMutableArray arrayWithCapacity:0];
+    NSMutableArray *filesNotFound = [NSMutableArray arrayWithCapacity:0];
+    BOOL noParameters = NO;
+    BOOL showHelp = NO;
+    BOOL showAbout = NO;
+    for (unsigned int i=1; i<[arguments count]; i++) {
+        NSString *arg = [arguments objectAtIndex:i];
+        if ([arg hasPrefix:@"-" ]) {
+            if ([arg length] < 2 || noParameters) {
+                printf("Invalid parameters.\n");
+                [pool release];
+                return IPA_FAILED;
+            }
+
+            for (unsigned int j=1; j<[arg length]; j++) {
+                NSString *p = [arg substringWithRange:NSMakeRange(j, 1)];
+                if ([p isEqualToString:@"u"])
+                    isUninstall = YES;
+                else if ([p isEqualToString:@"l"])
+                    isListing = YES;
+                else if ([p isEqualToString:@"b"]) {
+                    if (isBackupFull) {
+                        printf("Parameter b and B cannot be specified at the same time.\n");
+                        [pool release];
+                        return IPA_FAILED;
+                    }
+                    isBackup = YES;
+                } else if ([p isEqualToString:@"B"]) {
+                    if (isBackup) {
+                        printf("Parameter -b and -B cannot be specified at the same time.\n");
+                        [pool release];
+                        return IPA_FAILED;
+                    }
+                    isBackupFull = YES;
+                } else if ([p isEqualToString:@"a"])
+                    showAbout = YES;
+                else if ([p isEqualToString:@"c"])
+                    cleanInstall = YES;
+                else if ([p isEqualToString:@"d"])
+                    deleteFile = YES;
+                else if ([p isEqualToString:@"f"])
+                    forceInstall = YES;
+                else if ([p isEqualToString:@"h"])
+                    showHelp = YES;
+                else if ([p isEqualToString:@"n"])
+                    notRestore = YES;
+                else if ([p isEqualToString:@"q"]) {
+                    if (quietInstall != 0) {
+                        printf("Parameter -q and -Q cannot be specified at the same time.\n");
+                        [pool release];
+                        return IPA_FAILED;
+                    }
+                    quietInstall = 1;
+                } else if ([p isEqualToString:@"Q"]) {
+                    if (quietInstall != 0) {
+                        printf("Parameter -q and -Q cannot be specified at the same time.\n");
+                        [pool release];
+                        return IPA_FAILED;
+                    }
+                    quietInstall = 2;
+                } else if ([p isEqualToString:@"r"])
+                    removeMetadata = YES;
+                else if ([p isEqualToString:@"o"]) {
+                    if (!isBackup && !isBackupFull) {
+                        printf("You must specify -b or -B before -o.\n");
+                        [pool release];
+                        return IPA_FAILED;
+                    }
+                } else {
+                    printf("Invalid parameter '%s'.\n", [p cStringUsingEncoding:NSUTF8StringEncoding]);
+                    [pool release];
+                    return IPA_FAILED;
+                }
+            }
+        } else {
+            if (!isBackup && !isBackupFull) {
+                noParameters = YES;
+                NSURL *url = [NSURL fileURLWithPath:arg isDirectory:NO];
+                BOOL isDirectory;
+                if (url && [fileMgr fileExistsAtPath:[[url absoluteURL] path] isDirectory:&isDirectory]) {
+                    if (isDirectory)
+                        [filesNotFound addObject:arg];
+                    else
+                        [ipaFiles addObject:[[url absoluteURL] path]]; //File exists
+                } else
+                    [filesNotFound addObject:arg];
+            }
+        }
+    }
+
+    if (isListing) {
+        getInstalledApplications();
+        if ([arguments count] != 2) {
+            printf("Invalid parameters.\n");
+            [pool release];
+            return IPA_FAILED;
+        } else {
+            NSArray * identifiers = getInstalledApplications();
+
+            for (unsigned int i=0; i<[identifiers count]; i++)
+                printf("%s\n", [(NSString *)[identifiers objectAtIndex:i] cStringUsingEncoding:NSUTF8StringEncoding]);
+            [pool release];
+            return 0;
         }
     }
 
@@ -1456,11 +1543,9 @@ int main (int argc, char **argv, char **envp) {
                 NSString *appExecutablePath = [[installedAppDict objectForKey:@"APP_PATH"] stringByAppendingPathComponent:[installedAppDict objectForKey:@"EXECUTABLE"]];
 
                 BOOL appInstalled = YES;
-                if (![installedVerion isEqualToString:appVersion])
+                if (appInstalled && versionCompare(installedVerion, appVersion) != 0)
                     appInstalled = NO;
-                if ((installedShortVersion && !appShortVersion) || (!installedShortVersion && appShortVersion))
-                    appInstalled = NO;
-                if (installedShortVersion && appShortVersion && ![installedShortVersion isEqualToString:appShortVersion])
+                if (appInstalled && versionCompare(installedShortVersion, appShortVersion) != 0)
                     appInstalled = NO;
 
                 if (appInstalled) {
