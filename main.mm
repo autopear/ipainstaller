@@ -58,9 +58,8 @@ static BOOL notRestore = NO;
 static NSString * randomStringInLength(int len) {
     NSString *ret = @"";
     NSString *letters = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    for (int i=0; i<len; i++) {
+    for (int i=0; i<len; i++)
         ret = [NSString stringWithFormat:@"%@%C", ret, [letters characterAtIndex:arc4random() % [letters length]]];
-    }
     return ret;
 }
 
@@ -118,9 +117,9 @@ static void setPermissionsForPath(NSString *path, NSString *executablePath) {
                 [defaultAttributes setObject:[NSNumber numberWithShort:0644] forKey:NSFilePosixPermissions];
 
             [fileMgr setAttributes:defaultAttributes ofItemAtPath:[path stringByAppendingPathComponent:subPath] error:nil];
-        } else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory]) {
+        } else if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
             setPermissionsForPath([path stringByAppendingPathComponent:subPath], executablePath);
-        } else {
+        else {
             //Ignore symblic links
         }
     }
@@ -212,7 +211,7 @@ static NSDictionary *getInstalledAppInfo(NSString *appIdentifier) {
             [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleShortVersionString"]) forKey:@"SHORT_VERSION"];
             [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleName"]) forKey:@"NAME"];
             [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleDisplayName"]) forKey:@"DISPLAY_NAME"];
-            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleExecutable"]) forKey:@"DISPLAY_NAME"];
+            [info setObject:formatDictValue([appInfo objectForKey:@"CFBundleExecutable"]) forKey:@"EXECUTABLE"];
             return info;
         }
     } else {

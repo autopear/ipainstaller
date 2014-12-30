@@ -15,6 +15,8 @@ ipainstaller_SUBPROJECTS = ZipArchive/minizip
 
 include theos/makefiles/tool.mk
 
+VERSION.INC_BUILD_NUMBER = 2
+
 before-package::
 	ln -s ipainstaller _/usr/bin/installipa
 	touch -r _/usr/bin/ipainstaller _
