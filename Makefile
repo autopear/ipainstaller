@@ -15,7 +15,7 @@ ipainstaller_SUBPROJECTS = ZipArchive/minizip
 
 include theos/makefiles/tool.mk
 
-VERSION.INC_BUILD_NUMBER = 2
+VERSION.INC_BUILD_NUMBER = 1
 
 before-package::
 	ln -s ipainstaller _/usr/bin/installipa
