@@ -418,6 +418,8 @@ int main (int argc, char **argv, char **envp) {
         }
         if ([op1 isEqualToString:@"-i"] || [op1 isEqualToString:@"-I"]) {
             isGetInfo = YES;
+            for (unsigned int i=2; i<[arguments count]; i++)
+                [identifiers addObject:[arguments objectAtIndex:i]];
         }
 
         if ([op2 isEqualToString:@"-u"]) {
@@ -1026,6 +1028,8 @@ int main (int argc, char **argv, char **envp) {
                     cleanInstall = YES;
                 else if ([p isEqualToString:@"d"])
                     deleteFile = YES;
+                else if ([p isEqualToString:@"i"] || [p isEqualToString:@"I"])
+                    isGetInfo = YES;
                 else if ([p isEqualToString:@"f"])
                     forceInstall = YES;
                 else if ([p isEqualToString:@"h"])
