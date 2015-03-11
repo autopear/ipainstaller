@@ -479,9 +479,9 @@ int main (int argc, char **argv, char **envp) {
                     printf("Full Version: \"%s\"\n", [appVersion cStringUsingEncoding:NSUTF8StringEncoding]);
                     printf("Short Version: \"%s\"\n", [appShortVersion cStringUsingEncoding:NSUTF8StringEncoding]);
 
-                    return 0;
                 }
             }
+            return 0;
         }
 
 
