@@ -4,7 +4,7 @@
 #import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
-#define EXECUTABLE_VERSION @"3.3"
+#define EXECUTABLE_VERSION @"3.4"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -363,7 +363,7 @@ int main (int argc, char **argv, char **envp) {
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Back up application with given identifier to IPA.\n    -B  Back up application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).\n    -i  Display the meta-data for (a) specified identifier(s).", executableName, executableName, executableName, executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Back up application with given identifier to IPA.\n    -B  Back up application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -i  Display information of installed application(s).\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName, executableName, executableName, executableName];
 
     NSDate *today = [NSDate date];
 
@@ -371,7 +371,7 @@ int main (int argc, char **argv, char **envp) {
 
     [currentFormatter setDateFormat:@"yyyy"];
 
-    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or back up/browse/uninstall installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nFSSystemHasCapability from Ryan Petrich\n\nCopyright (C) 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
+    NSString *aboutString = [NSString stringWithFormat:@"About %@\nInstall IPAs via command line or back up/browse/uninstall installed applications.\nVersion: %@\nAuthor: Merlin Mao\n\nZipArchive from Matt Connolly\nFSSystemHasCapability from Ryan Petrich\n\nCopyright \u00A9 2012%@ Merlin Mao. All rights reserved.", executableName, EXECUTABLE_VERSION, [[currentFormatter stringFromDate:today] isEqualToString:@"2012"] ? @"" : [@"-" stringByAppendingString:[currentFormatter stringFromDate:today]]];
 
     [currentFormatter release];
 
@@ -416,7 +416,7 @@ int main (int argc, char **argv, char **envp) {
                     [identifiers addObject:[arguments objectAtIndex:i]];
             }
         }
-        if ([op1 isEqualToString:@"-i"] || [op1 isEqualToString:@"-I"]) {
+        if ([op1 isEqualToString:@"-i"]) {
             isGetInfo = YES;
             for (unsigned int i=2; i<[arguments count]; i++)
                 [identifiers addObject:[arguments objectAtIndex:i]];
@@ -436,8 +436,7 @@ int main (int argc, char **argv, char **envp) {
             }
         }
 
-        if (isGetInfo)
-        {
+        if (isGetInfo) {
             if ([identifiers count] < 1) {
                 printf("You must specify at least one application identifier.\n");
                 [pool release];
@@ -446,19 +445,10 @@ int main (int argc, char **argv, char **envp) {
 
             NSArray *installedApps = getInstalledApplications();
 
-            for (unsigned int i=0; i<[identifiers count]; i++) 
-            {
-                if ([installedApps containsObject:[identifiers objectAtIndex:i]]) 
-                {
-                    NSString *identifier = [identifiers objectAtIndex:i];
+            for (unsigned int i=0; i<[identifiers count]; i++) {
+                NSString *identifier = [identifiers objectAtIndex:i];
+                if ([installedApps containsObject:identifier]) {
                     NSDictionary *installedAppInfo = getInstalledAppInfo(identifier);
-
-                    if (!installedAppInfo) {
-                        if (quietInstall < 2)
-                            printf("Application \"%s\" is not installed.\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
-                        [pool release];
-                        return IPA_FAILED;
-                    } 
 
                     NSString *appDirPath = [installedAppInfo objectForKey:@"BUNDLE_PATH"];
                     NSString *appPath = [installedAppInfo objectForKey:@"APP_PATH"];
@@ -468,24 +458,30 @@ int main (int argc, char **argv, char **envp) {
                     NSString *appVersion = [installedAppInfo objectForKey:@"VERSION"];
                     NSString *appShortVersion = [installedAppInfo objectForKey:@"SHORT_VERSION"];
 
-                    printf("------------\n");
-                    //Stuff I care for
-                    printf("App Name: \"%s\"\n", [appName cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("BundleID: \"%s\"\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("Bundle Directory: \"%s\"\n", [appDirPath cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("App Directory: \"%s\"\n", [appPath cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("Data Directory: \"%s\"\n", [dataPath cStringUsingEncoding:NSUTF8StringEncoding]);
-
-                    //Stuff im not really caring for
-                    printf("Display Name: \"%s\"\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("Full Version: \"%s\"\n", [appVersion cStringUsingEncoding:NSUTF8StringEncoding]);
-                    printf("Short Version: \"%s\"\n", [appShortVersion cStringUsingEncoding:NSUTF8StringEncoding]);
-
+                    printf("Identifier: %s\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appVersion length] > 0)
+                        printf("Version: %s\n", [appVersion cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appShortVersion length] > 0)
+                        printf("Short Version: %s\n", [appShortVersion cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appName length] > 0)
+                        printf("Name: %s\n", [appName cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appDisplayName length] > 0)
+                        printf("Display Name: %s\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appDirPath length] > 0)
+                        printf("Bundle: %s\n", [appDirPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([appPath length] > 0)
+                        printf("Application: %s\n", [appPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                    if ([dataPath length] > 0)
+                        printf("Data: %s\n", [dataPath cStringUsingEncoding:NSUTF8StringEncoding]);
+                } else {
+                    if (quietInstall < 2)
+                        printf("Application \"%s\" is not installed.\n", [identifier cStringUsingEncoding:NSUTF8StringEncoding]);
                 }
+                if (i < [identifiers count] - 1)
+                    printf("\n");
             }
             return 0;
         }
-
 
         if (isUninstall) {
             if ([identifiers count] < 1) {
@@ -1836,13 +1832,13 @@ int main (int argc, char **argv, char **envp) {
                     }
 
                     //Set overall permission
-                    setPermissionsForPath(installedAppLocation);
-                    if (kCFCoreFoundationVersionNumber >= 1140.10)
-                        setPermissionsForPath(installedDataLocation);
-                    NSArray *allExecutables = getAllExecutables(appDirPath);
-                    if (allExecutables && [allExecutables count] > 0) {
-                        for (NSString *executable in allExecutables)
-                            setExecutablePermission(executable);
+                    if (kCFCoreFoundationVersionNumber < 793.00) {
+                        setPermissionsForPath(installedAppLocation);
+                        NSArray *allExecutables = getAllExecutables(appDirPath);
+                        if (allExecutables && [allExecutables count] > 0) {
+                            for (NSString *executable in allExecutables)
+                                setExecutablePermission(executable);
+                        }
                     }
                 } else {
                     if (quietInstall < 2)
