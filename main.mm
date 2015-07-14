@@ -363,7 +363,7 @@ int main (int argc, char **argv, char **envp) {
 
     NSString *executableName = [[arguments objectAtIndex:0] lastPathComponent];
 
-    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Back up application with given identifier to IPA.\n    -B  Back up application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -i  Display information of installed application(s).\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName, executableName, executableName, executableName];
+    NSString *helpString = [NSString stringWithFormat:@"Usage: %@ [OPTION]... [FILE]...\n       %@ -{bB} [APP_ID] [-o OUTPUT_PATH]\n       %@ -i [APP_ID]...\n       %@ -l\n       %@ -u [APP_ID]...\n\n\nOptions:\n    -a  Show tool about information.\n    -b  Back up application with given identifier to IPA.\n    -B  Back up application with given identifier and its documents and settings to IPA.\n    -c  Perform a clean install.\n        If the application has already been installed, the existing documents and other resources will be cleared.\n        This implements -n automatically.\n    -d  Delete IPA file(s) after installation.\n    -f  Force installation, do not check capabilities and system version.\n        Installed application may not work properly.\n    -h  Display this usage information.\n    -i  Display information of installed application(s).\n    -l  List identifiers of all installed App Store applications.\n    -n  Do not restore saved documents and other resources.\n    -o  Output IPA to specified path, or the IPA will be saved under /var/mobile/Documents/.\n    -q  Quiet mode, suppress all normal outputs.\n    -Q  Quieter mode, suppress all outputs including errors.\n    -r  Remove iTunesMetadata.plist after installation.\n    -u  Uninstall application with given identifier(s).", executableName, executableName, executableName, executableName, executableName];
 
     NSDate *today = [NSDate date];
 
@@ -1839,7 +1839,8 @@ int main (int argc, char **argv, char **envp) {
                             for (NSString *executable in allExecutables)
                                 setExecutablePermission(executable);
                         }
-                    }
+                    } else
+                        setPermissionsForPath(installedDataLocation); //Restore data directory's user/group for writing
                 } else {
                     if (quietInstall < 2)
                         printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);

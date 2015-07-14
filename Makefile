@@ -1,6 +1,6 @@
 export TARGET_CODESIGN_FLAGS="-Ssign.plist"
-export ARCHS = armv7
-export TARGET=iphone:8.2:4.0
+export ARCHS = armv7 armv7s arm64
+export TARGET=iphone:8.4:4.0
 GO_EASY_ON_ME=1
 include theos/makefiles/common.mk
 
@@ -15,7 +15,7 @@ ipainstaller_SUBPROJECTS = ZipArchive/minizip
 
 include theos/makefiles/tool.mk
 
-VERSION.INC_BUILD_NUMBER = 1
+VERSION.INC_BUILD_NUMBER = 2
 
 before-package::
 	ln -s ipainstaller _/usr/bin/installipa
