@@ -4,7 +4,7 @@
 #import "ZipArchive/ZipArchive.h"
 #import "UIDevice-Capabilities/UIDevice-Capabilities.h"
 
-#define EXECUTABLE_VERSION @"3.4"
+#define EXECUTABLE_VERSION @"3.4.1"
 
 #define KEY_INSTALL_TYPE @"User"
 #define KEY_SDKPATH "/System/Library/PrivateFrameworks/MobileInstallation.framework/MobileInstallation"
@@ -121,64 +121,35 @@ static void setPermissionsForPath(NSString *path) {
     }
 }
 
-static void setExecutablePermission(NSString *path) {
+static void setExecutables(NSString *dirPath) {
     NSFileManager *fileMgr = [NSFileManager defaultManager];
-    if ([fileMgr fileExistsAtPath:path]) {
-        NSDictionary *attributes = [fileMgr attributesOfItemAtPath:path error:nil];
-        if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular]) {
-            NSMutableDictionary *executableAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
-            [executableAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
-            [fileMgr setAttributes:executableAttributes ofItemAtPath:path error:nil];
-        }
-    }
-}
-
-NSArray *getAllExecutables(NSString *path) {
-    NSFileManager *fileMgr = [NSFileManager defaultManager];
-    NSMutableArray *executables = [NSMutableArray array];
     BOOL isDir;
-
-    NSString *mainInfoPlist = [path stringByAppendingPathComponent:@"Info.plist"];
-    NSDictionary *mainInfoDict = [NSDictionary dictionaryWithContentsOfFile:mainInfoPlist];
-    if (mainInfoDict) {
-        NSString *mainExecutable = [path stringByAppendingPathComponent:[mainInfoDict objectForKey:@"CFBundleExecutable"]];
-        if ([fileMgr fileExistsAtPath:mainExecutable isDirectory:&isDir] && !isDir)
-            [executables addObject:mainExecutable];
-    }
-
-    NSString *frameworksDir = [path stringByAppendingPathComponent:@"Frameworks"];
-    if ([fileMgr fileExistsAtPath:frameworksDir isDirectory:&isDir] && isDir) {
-        for (NSString *subDir in [fileMgr contentsOfDirectoryAtPath:frameworksDir error:nil]) {
-            if ([subDir hasSuffix:@".framework"]) {
-                NSString *frameworkDir = [frameworksDir stringByAppendingPathComponent:subDir];
-                NSString *frameworkInfoPlist = [frameworkDir stringByAppendingPathComponent:@"Info.plist"];
-                NSDictionary *frameworkInfoDict = [NSDictionary dictionaryWithContentsOfFile:frameworkInfoPlist];
-                if (frameworkInfoDict) {
-                    NSString *frameworkExecutable = [frameworkDir stringByAppendingPathComponent:[frameworkInfoDict objectForKey:@"CFBundleExecutable"]];
-                    if ([fileMgr fileExistsAtPath:frameworkExecutable isDirectory:&isDir] && !isDir)
-                        [executables addObject:frameworkExecutable];
-                }
+    if (![fileMgr fileExistsAtPath:dirPath isDirectory:&isDir])
+        return;
+    if (!isDir)
+        return;
+    
+    NSString *infoPlistPath = [dirPath stringByAppendingPathComponent:@"Info.plist"];
+    if ([fileMgr fileExistsAtPath:infoPlistPath]) {
+        NSDictionary *infoDict = [NSDictionary dictionaryWithContentsOfFile:infoPlistPath];
+        NSString *exeName = [infoDict objectForKey:@"CFBundleExecutable"];
+        NSString *exePath = [dirPath stringByAppendingPathComponent:exeName];
+        if ([fileMgr fileExistsAtPath:exePath]) {
+            NSDictionary *attributes = [fileMgr attributesOfItemAtPath:exePath error:nil];
+            if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeRegular]) {
+                NSMutableDictionary *executableAttributes = [NSMutableDictionary dictionaryWithDictionary:attributes];
+                [executableAttributes setObject:[NSNumber numberWithShort:0755] forKey:NSFilePosixPermissions];
+                [fileMgr setAttributes:executableAttributes ofItemAtPath:exePath error:nil];
             }
         }
     }
-
-    NSString *plugInsDir = [path stringByAppendingPathComponent:@"PlugIns"];
-    if ([fileMgr fileExistsAtPath:plugInsDir isDirectory:&isDir] && isDir) {
-        for (NSString *subDir in [fileMgr contentsOfDirectoryAtPath:plugInsDir error:nil]) {
-            if ([subDir hasSuffix:@".appex"]) {
-                NSString *plugInDir = [plugInsDir stringByAppendingPathComponent:subDir];
-                NSString *plugInInfoPlist = [plugInDir stringByAppendingPathComponent:@"Info.plist"];
-                NSDictionary *plugInInfoDict = [NSDictionary dictionaryWithContentsOfFile:plugInInfoPlist];
-                if (plugInInfoDict) {
-                    NSString *plugInExecutable = [plugInDir stringByAppendingPathComponent:[plugInInfoDict objectForKey:@"CFBundleExecutable"]];
-                    if ([fileMgr fileExistsAtPath:plugInExecutable isDirectory:&isDir] && !isDir)
-                        [executables addObject:plugInExecutable];
-                }
-            }
-        }
+    
+    for (NSString *subPath in [fileMgr contentsOfDirectoryAtPath:dirPath error:nil]) {
+        NSString *subDirPath = [dirPath stringByAppendingPathComponent:subPath];
+        NSDictionary *attributes = [fileMgr attributesOfItemAtPath:subDirPath error:nil];
+        if ([[attributes objectForKey:NSFileType] isEqualToString:NSFileTypeDirectory])
+            setExecutables(subDirPath);
     }
-
-    return executables;
 }
 
 static int versionCompare(NSString *ver1, NSString *ver2) {
@@ -1832,15 +1803,11 @@ int main (int argc, char **argv, char **envp) {
                     }
 
                     //Set overall permission
-                    if (kCFCoreFoundationVersionNumber < 793.00) {
+                    if (kCFCoreFoundationVersionNumber < 793.00)
                         setPermissionsForPath(installedAppLocation);
-                        NSArray *allExecutables = getAllExecutables(appDirPath);
-                        if (allExecutables && [allExecutables count] > 0) {
-                            for (NSString *executable in allExecutables)
-                                setExecutablePermission(executable);
-                        }
-                    } else
+                    else
                         setPermissionsForPath(installedDataLocation); //Restore data directory's user/group for writing
+                    setExecutables(appDirPath);
                 } else {
                     if (quietInstall < 2)
                         printf("Failed to install %s (v%s).\n", [appDisplayName cStringUsingEncoding:NSUTF8StringEncoding], [(appShortVersion ? appShortVersion : appVersion) cStringUsingEncoding:NSUTF8StringEncoding]);

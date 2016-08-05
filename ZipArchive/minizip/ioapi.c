@@ -1,9 +1,9 @@
 /* ioapi.c -- IO base function header for compress/uncompress .zip
    files using zlib + zip or unzip API
 
-   Version 1.01h, December 28th, 2009
+   Version 1.01e, February 12th, 2005
 
-   Copyright (C) 1998-2009 Gilles Vollant
+   Copyright (C) 1998-2005 Gilles Vollant
 */
 
 #include <stdio.h>
@@ -141,8 +141,7 @@ long ZCALLBACK fseek_file_func (opaque, stream, offset, origin)
     default: return -1;
     }
     ret = 0;
-    if (fseek((FILE *)stream, offset, fseek_origin) != 0)
-        ret = -1;
+    fseek((FILE *)stream, offset, fseek_origin);
     return ret;
 }
 
