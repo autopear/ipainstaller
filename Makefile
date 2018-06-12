@@ -1,6 +1,6 @@
 export TARGET_CODESIGN_FLAGS="-Ssign.plist"
 export ARCHS = armv7 arm64
-export TARGET=iphone:9.2:4.0
+export TARGET=iphone:11.2:4.0
 GO_EASY_ON_ME=1
 include theos/makefiles/common.mk
 
@@ -28,5 +28,3 @@ before-package::
 	chmod 0755 $(THEOS_STAGING_DIR)/usr/bin/ipainstaller
 	chmod 0644 $(THEOS_STAGING_DIR)/DEBIAN/control
 
-after-package::
-	rm -fr .theos
